@@ -1,0 +1,78 @@
+#!/system/bin/sh
+
+# Read Body
+if [ -n "$CONTENT_LENGTH" ]; then
+  # Read exact bytes
+  CMD=$(dd bs=1 count=$CONTENT_LENGTH 2>/dev/null)
+else
+  CMD=""
+fi
+
+# Send Content-Type
+# Note: emit headers AFTER reading POST body to avoid BusyBox httpd CGI quirks
+printf "Content-Type: application/json\r\n\r\n"
+
+if [ -z "$CMD" ]; then
+  echo '{"errno": 1, "stderr": "Empty command", "stdout": ""}'
+  exit 0
+fi
+
+# Execute Command
+# Use temp files for output capture (do not rely on /tmp; it may not exist under CGI env)
+TMPROOT="/data/local/tmp/miru/webui"
+mkdir -p "$TMPROOT" >/dev/null 2>&1 || true
+
+TS="$(date +%s 2>/dev/null)"
+[ -z "$TS" ] && TS="$(toybox date +%s 2>/dev/null)"
+[ -z "$TS" ] && TS="0"
+
+# Secure temp file creation
+OUT="$TMPROOT/out.${TS}.$$"
+ERR="$TMPROOT/err.${TS}.$$"
+SCRIPT_FILE="$TMPROOT/script.${TS}.$$"
+
+# Trap for cleanup (Ensures temp files are deleted even if script crashes)
+trap 'rm -f "$OUT" "$ERR" "$SCRIPT_FILE" >/dev/null 2>&1' EXIT HUP INT TERM
+
+if ! : > "$OUT" 2>/dev/null; then
+  OUT="/dev/null"
+fi
+if ! : > "$ERR" 2>/dev/null; then
+  ERR="/dev/null"
+fi
+
+# Run
+# Write to script to avoid eval/quote issues
+echo "$CMD" > "$SCRIPT_FILE"
+chmod 700 "$SCRIPT_FILE"
+
+"$SCRIPT_FILE" >"$OUT" 2>"$ERR"
+EXIT_CODE=$?
+
+b64enc() {
+  if command -v base64 >/dev/null 2>&1; then
+    base64
+    return
+  fi
+  if command -v toybox >/dev/null 2>&1; then
+    toybox base64
+    return
+  fi
+  if [ -x /data/adb/magisk/busybox ]; then
+    /data/adb/magisk/busybox base64
+    return
+  fi
+  # Fallback implementation using od/awk if absolutely needed, but cat is safe failure
+  cat
+}
+
+# Read and Base64 encode outputs to avoid JSON escaping hell
+STDOUT_B64=$(cat "$OUT" 2>/dev/null | b64enc | tr -d '\n')
+STDERR_B64=$(cat "$ERR" 2>/dev/null | b64enc | tr -d '\n')
+
+# Return JSON
+echo "{"
+echo "  \"errno\": $EXIT_CODE,"
+echo "  \"stdout_b64\": \"$STDOUT_B64\","
+echo "  \"stderr_b64\": \"$STDERR_B64\""
+echo "}"

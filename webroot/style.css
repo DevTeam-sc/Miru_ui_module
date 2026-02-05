@@ -1,0 +1,10 @@
+body { font-family: system-ui; background:#0b0f17; color:#e8eefc; margin:0; padding:24px; }
+.card { max-width:520px; margin:0 auto; background:#121a2a; border:1px solid #22314d; border-radius:18px; padding:18px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+h1 { margin:0 0 6px; font-size:20px; }
+.sub { margin:0 0 14px; opacity:.8; }
+.row { display:flex; align-items:center; gap:12px; margin:12px 0; }
+.btns { display:flex; gap:10px; margin-top:12px; }
+button { border:1px solid #2b3b5c; background:#18233a; color:#e8eefc; padding:10px 12px; border-radius:12px; cursor:pointer; }
+button.primary { background:#2a4cff; border-color:#2a4cff; }
+button.danger { background:#ff2a6a; border-color:#ff2a6a; }
+pre { margin-top:14px; padding:12px; background:#0d1424; border:1px solid #1f2b46; border-radius:12px; height:140px; overflow:auto; }

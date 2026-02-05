@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Miru Next</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --background: #050505;
+            --primary: #db2777;
+            --primary-glow: rgba(219, 39, 119, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #a3a3a3;
+            --glass-bg: rgba(20, 20, 20, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --warning: #eab308;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 50% 0%, #1a1a1a 0%, transparent 70%),
+                radial-gradient(circle at 80% 80%, rgba(219, 39, 119, 0.15) 0%, transparent 50%);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            text-align: center;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 420px;
+            margin: 1rem;
+            animation: fadeIn 0.6s ease-out;
+            background: var(--glass-bg);
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .logo-wrapper {
+            margin-bottom: 1.5rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .logo {
+            width: 96px;
+            height: 96px;
+            border-radius: 20px;
+            box-shadow: 0 0 40px var(--primary-glow);
+            transition: transform 0.3s ease;
+            object-fit: cover;
+        }
+
+        .logo:hover {
+            transform: scale(1.05) translateY(-8px);
+        }
+
+        h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #a3a3a3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 20px;
+            color: var(--success);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-badge.warning {
+            background: rgba(234, 179, 8, 0.1);
+            border-color: rgba(234, 179, 8, 0.2);
+            color: var(--warning);
+        }
+
+        .status-badge.warning .status-dot {
+            background: var(--warning);
+            box-shadow: 0 0 8px var(--warning);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.8;
+            }
+        }
+
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 2.5rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            font-size: 0.875rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .app-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            text-align: left;
+            max-height: 50vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .app-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            animation: slideIn 0.3s ease-out backwards;
+        }
+
+        .app-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-1px);
+        }
+
+        .app-item:hover .app-name {
+            color: var(--primary);
+        }
+
+        .app-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+            margin-right: 1rem;
+        }
+
+        .app-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: color 0.15s;
+        }
+
+        .app-package {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px;
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            font-size: 0.875rem;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.75rem;
+            color: #444;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-update {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-update:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo-wrapper">
+            <img src="Assets/bank/Miru-logo.png" alt="Miru" class="logo">
+        </div>
+
+        <h1>Miru Next</h1>
+
+        <div class="status-badge" id="statusBadge">
+            <div class="status-dot"></div>
+            <span id="statusText">System Active</span>
+        </div>
+
+        <div class="search-wrapper">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" id="appSearch" class="search-input" placeholder="Search apps / ค้นหาแอพ...">
+        </div>
+
+        <div class="app-list" id="appList"></div>
+
+        <div class="footer">
+            <div>v3.0.0 (System Connected) • DevSKY & Miruko</div>
+            <button class="btn-update" onclick="checkUpdate()" id="btnUpdate">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                    <path d="M16 16h5v5"></path>
+                </svg>
+                Update Scripts
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & Environment ---
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        // Assume rooted if KSU is present OR if we are running under CGI path
+        const isRootedEnv = typeof ksu !== 'undefined' || window.location.href.includes('cgi-bin') || true;
+
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDot = statusBadge.querySelector('.status-dot');
+        const statusText = document.getElementById('statusText');
+        const appList = document.getElementById('appList');
+
+        // --- Icon Handling ---
+        // Miru Logo as Fallback
+        const fallbackIcon = 'Assets/bank/Miru-logo.png';
+
+        function handleIconError(img, pkg) {
+            const currentSrc = img.src;
+            // Fallback Chain: apps/{pkg}.png -> bank/{pkg}.jpg -> bank/{pkg}.png -> Miru Logo
+
+            if (currentSrc.includes(`Assets/apps/${pkg}.png`)) {
+                img.src = `Assets/bank/${pkg}.jpg`;
+            } else if (currentSrc.includes(`Assets/bank/${pkg}.jpg`)) {
+                img.src = `Assets/bank/${pkg}.png`;
+            } else {
+                img.src = fallbackIcon;
+                // img.style.padding = '8px'; // Miru logo is full-size, no padding needed
+                img.onerror = null;
+            }
+        }
+
+        // --- KSU / CGI Bridge ---
+        async function ksuExec(cmd) {
+            // Priority 1: Native KSU (WebView)
+            if (typeof ksu !== 'undefined' && ksu.exec) {
+                const res = await ksu.exec(cmd);
+                return res.stdout || "";
+            }
+            // Priority 2: CGI Bridge (Browser)
+            try {
+                const response = await fetch('/cgi-bin/exec', {
+                    method: 'POST',
+                    body: cmd
+                });
+                if (!response.ok) throw new Error('CGI Error');
+                const json = await response.json();
+                return atob(json.stdout_b64);
+            } catch (e) {
+                console.warn("Exec failed:", e);
+                return "";
+            }
+        }
+
+        // --- Core Logic ---
+        async function loadApps() {
+            statusText.textContent = "Connecting to system...";
+            statusBadge.classList.add('warning');
+
+            try {
+                // 1. Parallel Fetch: NamePack + AppList
+                const [nameMapRes, appsRes] = await Promise.allSettled([
+                    fetch('config/namepack.json').then(r => r.json()),
+                    fetch('/cgi-bin/get_apps').then(r => r.json())
+                ]);
+
+                const nameMap = nameMapRes.status === 'fulfilled' ? nameMapRes.value : {};
+                let apps = [];
+
+                if (appsRes.status === 'fulfilled') {
+                    apps = appsRes.value;
+                    console.log("Loaded apps via CGI");
+                } else {
+                    console.log("CGI failed, trying direct PM command...");
+                    const out = await ksuExec('pm list packages -3');
+                    if (!out || out.trim() === "") throw new Error("Failed to list packages");
+
+                    apps = out.split('\n')
+                        .filter(l => l.startsWith('package:'))
+                        .map(l => {
+                            const p = l.replace('package:', '').trim();
+                            return { pkg: p, name: p };
+                        });
+                }
+
+                if (apps.length === 0) throw new Error("No apps found on device");
+
+                // Sort apps by name (mapped or original)
+                apps.sort((a, b) => {
+                    const nameA = nameMap[a.pkg] || a.name || a.pkg;
+                    const nameB = nameMap[b.pkg] || b.name || b.pkg;
+                    return nameA.localeCompare(nameB);
+                });
+
+                renderAppList(apps, nameMap);
+                updateStatus(true, apps.length);
+
+            } catch (e) {
+                console.error(e);
+                statusText.textContent = `Connection Failed`;
+                statusBadge.classList.add('warning');
+
+                // Show retry UI
+                appList.innerHTML = `
+                    <div style="text-align:center; padding:2rem; color:var(--text-muted)">
+                        <div style="font-size: 2rem; margin-bottom: 1rem;">⚠️</div>
+                        <p>ไม่สามารถเชื่อมต่อกับระบบแอพได้</p>
+                        <small style="opacity:0.7">${e.message}</small>
+                        <br><br>
+                        <button onclick="loadApps()" style="padding:8px 16px; border-radius:8px; background:var(--primary); color:white; border:none; cursor:pointer;">
+                            ลองใหม่อีกครั้ง
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderAppList(apps, nameMap) {
+            appList.innerHTML = '';
+            apps.forEach((app, index) => {
+                const pkg = app.pkg;
+                // Priority: NamePack -> Extracted Label -> Package Name
+                const name = nameMap[pkg] || app.name || pkg;
+
+                const item = document.createElement('div');
+                item.className = 'app-item';
+                item.style.animationDelay = `${index * 0.05}s`;
+                item.onclick = () => selectApp(pkg, name);
+
+                item.innerHTML = `
+                    <div class="app-meta">
+                        <div class="app-name">${name}</div>
+                        <div class="app-package">${pkg}</div>
+                    </div>
+                    <img src="Assets/apps/${pkg}.png" 
+                         alt="${name}" 
+                         class="app-logo"
+                         onerror="handleIconError(this, '${pkg}')">
+                `;
+                appList.appendChild(item);
+            });
+
+            // Setup Search
+            document.getElementById('appSearch').oninput = (e) => {
+                const term = e.target.value.toLowerCase();
+                document.querySelectorAll('.app-item').forEach(item => {
+                    const text = item.innerText.toLowerCase();
+                    item.style.display = text.includes(term) ? 'flex' : 'none';
+                });
+            };
+        }
+
+        function updateStatus(active, count) {
+            statusText.textContent = `System Active (${count} apps)`;
+            if (active) {
+                statusBadge.classList.remove('warning');
+                statusBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+                statusBadge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                statusBadge.style.color = '#10b981';
+                statusDot.style.background = '#10b981';
+                statusDot.style.boxShadow = '0 0 8px #10b981';
+            }
+        }
+
+        function selectApp(pkg, label) {
+            localStorage.setItem('miru.selectedPkg', pkg);
+            localStorage.setItem('miru.selectedLabel', label);
+
+            const target = window.location.origin + '/ide.html?pkg=' + encodeURIComponent(pkg) + '&label=' + encodeURIComponent(label);
+            console.log('Navigating to:', target);
+            window.location.href = target;
+        }
+
+        // Start
+        loadApps();
+
+        // --- Update System ---
+        async function checkUpdate() {
+            const btn = document.getElementById('btnUpdate');
+            const icon = btn.querySelector('svg');
+            
+            if (!confirm("ต้องการอัพเดทสคริปต์จาก Server ใช่หรือไม่?\n(Update Scripts from Git Repo)")) return;
+
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> Updating...`;
+            
+            try {
+                // Call CGI Update
+                const response = await fetch('/cgi-bin/update', { method: 'POST' });
+                const json = await response.json();
+                
+                if (json.status === 'success') {
+                    alert("✅ Update Completed!\n\n" + atob(json.log_b64));
+                    location.reload();
+                } else {
+                    throw new Error(atob(json.log_b64) || "Update script failed");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("❌ Update Failed:\n" + e.message);
+                btn.innerHTML = `⚠️ Retry Update`;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

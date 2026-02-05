@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Miru Next</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --background: #050505;
+            --primary: #db2777;
+            --primary-glow: rgba(219, 39, 119, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #a3a3a3;
+            --glass-bg: rgba(20, 20, 20, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --warning: #eab308;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 50% 0%, #1a1a1a 0%, transparent 70%),
+                radial-gradient(circle at 80% 80%, rgba(219, 39, 119, 0.15) 0%, transparent 50%);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            text-align: center;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 420px;
+            margin: 1rem;
+            animation: fadeIn 0.6s ease-out;
+            background: var(--glass-bg);
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .logo-wrapper {
+            margin-bottom: 1.5rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .logo {
+            width: 96px;
+            height: 96px;
+            border-radius: 20px;
+            box-shadow: 0 0 40px var(--primary-glow);
+            transition: transform 0.3s ease;
+            object-fit: cover;
+        }
+
+        .logo:hover {
+            transform: scale(1.05) translateY(-8px);
+        }
+
+        h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #a3a3a3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 20px;
+            color: var(--success);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-badge.warning {
+            background: rgba(234, 179, 8, 0.1);
+            border-color: rgba(234, 179, 8, 0.2);
+            color: var(--warning);
+        }
+
+        .status-badge.warning .status-dot {
+            background: var(--warning);
+            box-shadow: 0 0 8px var(--warning);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 2.5rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            font-size: 0.875rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .app-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            text-align: left;
+            max-height: 50vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .app-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            animation: slideIn 0.3s ease-out backwards;
+        }
+
+        .app-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-1px);
+        }
+
+        .app-item:hover .app-name {
+            color: var(--primary);
+        }
+
+        .app-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+            margin-right: 1rem;
+        }
+
+        .app-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: color 0.15s;
+        }
+
+        .app-package {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px;
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            font-size: 0.875rem;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.75rem;
+            color: #444;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-wrapper">
+            <img src="miru-logo.png" alt="Miru" class="logo">
+        </div>
+
+        <h1>Miru Next</h1>
+
+        <div class="status-badge" id="statusBadge">
+            <div class="status-dot"></div>
+            <span id="statusText">System Active</span>
+        </div>
+
+        <div class="search-wrapper">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" id="appSearch" class="search-input" placeholder="Search apps / ค้นหาแอพ...">
+        </div>
+
+        <div class="app-list" id="appList"></div>
+
+        <div class="footer">
+            v2.9.5 (Hotfix17) • DevSKY & Miruko
+        </div>
+    </div>
+
+    <script>
+        const apps = [
+            { id: "1", name: "KTB Next", pkg: "ktbcs.netbank" },
+            { id: "2", name: "SCB Easy", pkg: "com.scb.phone" },
+            { id: "3", name: "K PLUS", pkg: "com.kasikorn.retail.mbanking.wap" },
+            { id: "4", name: "Bangkok Bank Mobile", pkg: "com.bbl.mobilebanking" },
+            { id: "5", name: "TTB Touch", pkg: "com.ttb.mobile" },
+            { id: "6", name: "Krungsri Mobile", pkg: "com.krungsri.kma" },
+            { id: "7", name: "PromptPay", pkg: "com.promptpay.app" },
+            { id: "8", name: "TrueMoney Wallet", pkg: "th.co.truemoney.wallet" }
+        ];
+
+        const appList = document.getElementById('appList');
+        const searchInput = document.getElementById('appSearch');
+        const statusText = document.getElementById('statusText');
+        const statusBadge = document.getElementById('statusBadge');
+
+        // Detect environment
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const isRootedEnv = typeof ksu !== 'undefined' || window.location.href.includes('cgi-bin');
+
+        if (!isRootedEnv) {
+            statusText.textContent = isAndroid ? 'Android (No Root)' : 'Demo Mode';
+            statusBadge.classList.add('warning');
+        }
+
+        function getAvatarUrl(name) {
+            return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=333&color=fff&size=80`;
+        }
+
+        function renderApps(filteredApps) {
+            if (filteredApps.length === 0) {
+                appList.innerHTML = '<div class="no-results">No apps found</div>';
+                return;
+            }
+
+            appList.innerHTML = filteredApps.map((app, index) => `
+                <div class="app-item" onclick="selectApp('${app.pkg}', '${app.name}')" style="animation-delay: ${index * 0.05}s">
+                    <div class="app-meta">
+                        <div class="app-name">${app.name}</div>
+                        <div class="app-package">${app.pkg}</div>
+                    </div>
+                    <img src="Assets/apps/${app.pkg}.png" 
+                         alt="${app.name}" 
+                         class="app-logo"
+                         onerror="this.src='${getAvatarUrl(app.name)}'">
+                </div>
+            `).join('');
+
+            // Update status
+            statusText.textContent = isRootedEnv 
+                ? `System Active (${filteredApps.length} apps)` 
+                : `${isAndroid ? 'Android' : 'Demo'} (${filteredApps.length} apps)`;
+        }
+
+        function selectApp(pkg, label) {
+            try {
+                localStorage.setItem('miru.selectedPkg', pkg);
+                localStorage.setItem('miru.selectedLabel', label);
+            } catch (e) {}
+
+            const baseUrl = window.location.origin;
+            const target = baseUrl + '/ide.html?pkg=' + encodeURIComponent(pkg) + '&label=' + encodeURIComponent(label);
+            
+            console.log('Selected:', label, pkg);
+            // window.location.href = target;
+            
+            // For demo, show alert
+            alert(`Selected: ${label}\nPackage: ${pkg}`);
+        }
+
+        // Search functionality
+        searchInput.addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            const filtered = apps.filter(app => 
+                app.name.toLowerCase().includes(term) || 
+                app.pkg.toLowerCase().includes(term)
+            );
+            renderApps(filtered);
+        });
+
+        // Initial render
+        renderApps(apps);
+
+        // Try to load real apps if in rooted environment
+        async function loadRealApps() {
+            if (!isRootedEnv) return;
+
+            try {
+                const res = await fetch('/cgi-bin/get_apps');
+                if (!res.ok) throw new Error('CGI Error');
+                const realApps = await res.json();
+                if (realApps.length > 0) {
+                    apps.length = 0;
+                    realApps.forEach(app => apps.push({ 
+                        id: app.pkg, 
+                        name: app.name || app.pkg, 
+                        pkg: app.pkg 
+                    }));
+                    renderApps(apps);
+                }
+            } catch (e) {
+                console.log('Using demo apps');
+            }
+        }
+
+        loadRealApps();
+    </script>
+</body>
+</html>

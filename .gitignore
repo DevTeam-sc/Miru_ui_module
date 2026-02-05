@@ -1,0 +1,32 @@
+# System & Logs
+tmp/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# IDE & Configs
+.vscode/
+.idea/
+.trae/
+
+# Build Artifacts
+*.zip
+*.ap_
+*.odex
+*.vdex
+output/
+dist/
+build/
+
+# Private Keys & Secrets (Important!)
+*.key
+*.keystore
+*.jks
+secret.json
+
+# Local Configs (Keep host.json in repo as template, but ignore local changes if needed)
+# webroot/config/host.json
+
+# Tools (Optional: Uncomment if you don't want to push binaries)
+# tools/

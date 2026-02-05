@@ -1,0 +1,34 @@
+{
+  "version": "2.0",
+  "targets": {
+    "ktbcs.netbank": {
+      "name": "KTB Next",
+      "enabled": true,
+      "scripts": {
+        "primary": "scripts/ktbcs.netbank/bypass.js",
+        "manual": []
+      },
+      "vkeyDynamic": {
+        "enabled": true,
+        "jniAllowlist": [
+          "Java_com_vkey_android_internal_vguard_engine_NativeThreatsChecker_.*",
+          "Java_com_vkey_android_internal_vguard_engine_checks_FuncPtrCheck_validateFunctionPointer.*"
+        ],
+        "jniDenylist": [
+          "Java_vkey_android_vos_VosWrapper.*",
+          "Java_vkey_android_vos_VosWrapperBase.*"
+        ],
+        "jniOverrideReturn": [
+          {
+            "re": "validateFunctionPointer",
+            "value": 1
+          },
+          {
+            "re": "checkFor",
+            "value": 0
+          }
+        ]
+      }
+    }
+  }
+}

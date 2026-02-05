@@ -1,0 +1,31 @@
+#!/system/bin/sh
+# CGI Wrapper for Update
+# This allows the update script to be called via HTTP POST
+
+# 1. Print Header (Required for CGI)
+printf "Content-Type: application/json\r\n\r\n"
+
+# 2. Run Update
+# We execute the update script and capture output
+# Note: Since update.sh restarts the WebUI or messes with files,
+# we should run it in background or detach, but for now we run blocking to show log.
+
+UPDATE_SCRIPT="$(dirname $0)/../../scripts/update.sh"
+
+if [ ! -x "$UPDATE_SCRIPT" ]; then
+  echo '{"status":"error","message":"Update script not found"}'
+  exit 0
+fi
+
+# Create a log file
+LOGFILE="/data/local/tmp/miru_update.log"
+sh "$UPDATE_SCRIPT" > "$LOGFILE" 2>&1
+EXIT_CODE=$?
+
+# Read log for response
+LOG_CONTENT=$(cat "$LOGFILE" | base64 | tr -d '\n')
+
+echo "{"
+echo "  \"status\": \"$([ $EXIT_CODE -eq 0 ] && echo 'success' || echo 'error')\","
+echo "  \"log_b64\": \"$LOG_CONTENT\""
+echo "}"

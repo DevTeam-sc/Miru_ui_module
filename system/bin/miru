@@ -1,0 +1,73 @@
+#!/system/bin/sh
+# Miru CLI Tool
+
+# Robust Module Directory Detection
+if [ -d "/data/adb/modules/miru_ui_module" ]; then
+    MODDIR="/data/adb/modules/miru_ui_module"
+elif [ -d "/data/adb/ksu/modules/miru_ui_module" ]; then
+    MODDIR="/data/adb/ksu/modules/miru_ui_module"
+else
+    # Fallback
+    MODDIR="/data/adb/modules/miru_ui_module"
+fi
+
+show_banner() {
+    echo "  __  __ _            "
+    echo " |  \/  (_)r u k o    "
+    echo " | |\/| | | _ __ _   _"
+    echo " | |  | | || '__| | | |"
+    echo " |_|  |_|_||_|  | |_| |"
+    echo "                 \__,_|"
+    echo " v5.0 | CLI Interface"
+}
+
+case "$1" in
+    "start"|"restart")
+        echo "[Miru] Triggering Action..."
+        sh "$MODDIR/action.sh"
+        ;;
+    "stop")
+        pkill -f httpd_server
+        echo "[Miru] Server stopped."
+        ;;
+    "status")
+        show_banner
+        echo ""
+        if pgrep -f httpd_server >/dev/null; then
+            PID=$(pgrep -f httpd_server | head -n 1)
+            echo "[+] Status: ONLINE (PID $PID)"
+            
+            # Get IP
+            IP=$(ip route | grep wlan0 | grep src | sed 's/.*src \([0-9.]*\).*/\1/')
+            [ -z "$IP" ] && IP="127.0.0.1"
+            
+            echo "[+] URL:    http://$IP:9090/ide.html"
+            echo "[+] PC Host: $(cat $MODDIR/webroot/config/host.json 2>/dev/null || echo 'Not Configured')"
+        else
+            echo "[-] Status: OFFLINE"
+            echo "Run 'miru start' to launch."
+        fi
+        ;;
+    "log")
+        echo "[Miru] Tailing log (Ctrl+C to exit)..."
+        tail -f /data/local/tmp/miru_ui_module.log
+        ;;
+    "shell")
+        echo "[Miru] Entering Module Shell..."
+        cd "$MODDIR"
+        sh
+        ;;
+    *)
+        show_banner
+        echo ""
+        echo "Usage: miru [command]"
+        echo ""
+        echo "Commands:"
+        echo "  start   : Start/Restart WebUI & Services"
+        echo "  stop    : Stop WebUI"
+        echo "  status  : Show Server Info & URL"
+        echo "  log     : View Logs"
+        echo "  shell   : Shell into module dir"
+        echo ""
+        ;;
+esac

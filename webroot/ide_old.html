@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="theme-color" content="#050505">
+    <title>Miru IDE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --background: #050505;
+            --surface: #0a0a0a;
+            --primary: #db2777;
+            --primary-glow: rgba(219, 39, 119, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #a3a3a3;
+            --text-dim: #666666;
+            --glass-bg: rgba(20, 20, 20, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --warning: #eab308;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --safe-area-top: env(safe-area-inset-top);
+            --safe-area-bottom: env(safe-area-inset-bottom);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: var(--background);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* App-like: No body scroll */
+            background-image:
+                radial-gradient(circle at 50% 0%, #1a1a1a 0%, transparent 70%),
+                radial-gradient(circle at 80% 80%, rgba(219, 39, 119, 0.1) 0%, transparent 50%);
+            user-select: none;
+            /* App-like: No text selection by default */
+        }
+
+        /* Allow selection where needed */
+        .editor-content,
+        .console-content,
+        input {
+            user-select: text;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: calc(0.75rem + var(--safe-area-top)) 1rem 0.75rem 1rem;
+            background: var(--glass-bg);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .back-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .back-btn:active,
+        .tool-btn:active,
+        .panel-btn:active,
+        .menu-btn:active,
+        .console-toggle-btn:active {
+            transform: scale(0.95);
+        }
+
+        .app-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .app-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .app-pkg {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 20px;
+            color: var(--success);
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.7;
+                transform: scale(1.2);
+            }
+        }
+
+        /* Sidebar (Acode Style) */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            /* Hidden by default */
+            width: 280px;
+            height: 100%;
+            background: #0d1117;
+            /* Darker bg */
+            border-right: 1px solid var(--glass-border);
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+            padding-top: calc(var(--safe-area-top) + 1rem);
+        }
+
+        .sidebar.open {
+            transform: translateX(280px);
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .sidebar-title {
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(2px);
+        }
+
+        .sidebar-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Tab Bar */
+        .tab-bar {
+            display: flex;
+            background: #010409;
+            overflow-x: auto;
+            border-bottom: 1px solid var(--glass-border);
+            height: 40px;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            border-right: 1px solid var(--glass-border);
+            background: #0d1117;
+            cursor: pointer;
+            min-width: 120px;
+            max-width: 200px;
+            position: relative;
+        }
+
+        .tab.active {
+            background: #1e1e1e;
+            color: var(--text-main);
+            border-top: 2px solid var(--primary);
+        }
+
+        .tab-icon {
+            margin-right: 8px;
+            color: #eab308;
+            /* JS Yellow */
+        }
+
+        .tab-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        .tab-close {
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .tab:hover .tab-close,
+        .tab.active .tab-close {
+            opacity: 1;
+        }
+
+        /* Keyboard Helper */
+        .keyboard-helper {
+            height: 40px;
+            background: #0d1117;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            padding: 0 0.5rem;
+            gap: 0.5rem;
+        }
+
+        .key-btn {
+            min-width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            padding: 0 8px;
+        }
+
+        .key-btn:active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Main Area Adjustments */
+        .main {
+            padding: 0;
+            /* Full width */
+            background: #010409;
+        }
+
+        .panels {
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .panel {
+            border: none;
+            border-radius: 0;
+            background: transparent;
+        }
+
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: transparent;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        transition: all 0.15s;
+        }
+
+        .panel-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .panel-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            padding: 1rem;
+        }
+
+        /* Code Editor - Overlay Technique */
+        .code-editor-container {
+            position: relative;
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            background: #0d1117;
+            /* GitHub Dark Dimmed */
+            /* Removed card styling to fit panel */
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .line-numbers {
+            width: 45px;
+            background: #0d1117;
+            border-right: 1px solid #30363d;
+            color: #484f58;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            /* Fixed line height for sync */
+            text-align: right;
+            padding: 1rem 0.75rem 1rem 0;
+            user-select: none;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .editor-wrapper {
+            position: relative;
+            flex: 1;
+            height: 100%;
+            overflow: hidden;
+            /* Scroll handled by textarea */
+        }
+
+        /* Common styles for both layers */
+        .code-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 1rem;
+            margin: 0;
+            border: none;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            tab-size: 4;
+            white-space: pre;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+
+        /* Bottom layer: Syntax Highlighting */
+        #highlighting {
+            z-index: 0;
+            color: #c9d1d9;
+            background: transparent;
+            pointer-events: none;
+            /* Let clicks pass through */
+        }
+
+        /* Top layer: Input */
+        #codeEditor {
+            z-index: 1;
+            color: transparent;
+            /* Hide text but keep caret */
+            background: transparent;
+            caret-color: var(--primary);
+            /* Pink caret */
+            outline: none;
+            resize: none;
+        }
+
+        #codeEditor::selection {
+            background: rgba(219, 39, 119, 0.3);
+            color: transparent;
+        }
+
+        /* Syntax Highlighting Colors */
+        .hl-keyword {
+            color: #ff7b72;
+        }
+
+        /* red/pink */
+        .hl-function {
+            color: #d2a8ff;
+        }
+
+        /* purple */
+        .hl-string {
+            color: #a5d6ff;
+        }
+
+        /* light blue */
+        .hl-comment {
+            color: #8b949e;
+            font-style: italic;
+        }
+
+        /* gray */
+        .hl-number {
+            color: #79c0ff;
+        }
+
+        /* blue */
+        .hl-operator {
+            color: #79c0ff;
+        }
+
+        .hl-class {
+            color: #f0883e;
+        }
+
+        /* orange */
+
+        /* Console */
+        .console-output {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            line-height: 1.8;
+        }
+
+        .console-line {
+            display: flex;
+            gap: 8px;
+            padding: 2px 0;
+        }
+
+        .console-time {
+            color: var(--text-dim);
+            user-select: none;
+        }
+
+        .console-type {
+            padding: 0 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .console-type.info {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--info);
+        }
+
+        .console-type.success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .console-type.warn {
+            background: rgba(234, 179, 8, 0.2);
+            color: var(--warning);
+        }
+
+        .console-type.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        .console-msg {
+            color: var(--text-muted);
+            flex: 1;
+        }
+
+        /* File Tree */
+        .file-tree {
+            font-size: 0.8rem;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            color: var(--text-muted);
+        }
+
+        .file-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        .file-item.active {
+            background: rgba(219, 39, 119, 0.1);
+            color: var(--primary);
+        }
+
+        .file-item svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .file-item.folder svg {
+            color: var(--warning);
+        }
+
+        .file-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .folder-children {
+            margin-left: 1.25rem;
+            border-left: 1px solid var(--glass-border);
+            padding-left: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .header {
+                padding: calc(0.625rem + var(--safe-area-top)) 0.625rem 0.625rem 0.625rem;
+            }
+
+            .app-title {
+                font-size: 0.875rem;
+            }
+
+            .status-indicator span {
+                display: none;
+            }
+
+            .tool-btn span {
+                display: none;
+            }
+
+            .tool-btn {
+                padding: 0.5rem;
+            }
+        }
+
+        /* Responsive Layout Improvements (Acode Logic) */
+        @media (max-width: 768px) {
+
+            /* Sidebar Overlay (Mobile) */
+            .sidebar-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(2px);
+                z-index: 999;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s;
+            }
+
+            .sidebar-overlay.visible {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            /* Hide back button text on mobile */
+            .back-btn {
+                display: none;
+                /* We use hamburger instead or integrated */
+            }
+
+            /* Console Bottom Sheet (Mobile) */
+            .console-panel {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 40vh;
+                z-index: 1000;
+                transform: translateY(100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                border-radius: 16px 16px 0 0;
+                box-shadow: 0 -5px 30px rgba(0, 0, 0, 0.5);
+                border: 1px solid var(--glass-border);
+                border-bottom: none;
+                background: #0a0a0a;
+                /* Ensure background is solid */
+            }
+
+            .console-panel.open {
+                transform: translateY(0);
+            }
+
+            /* Toolbar adjustments for mobile */
+            .toolbar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                background: var(--glass-bg);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border-top: 1px solid var(--glass-border);
+                padding: 0.75rem 1rem calc(0.75rem + var(--safe-area-bottom)) 1rem;
+                z-index: 900;
+                justify-content: space-around;
+                gap: 0;
+                flex-wrap: nowrap;
+            }
+
+            .main {
+                padding-bottom: 80px;
+                /* Space for toolbar */
+            }
+
+            .tool-btn {
+                flex-direction: column;
+                gap: 4px;
+                background: transparent !important;
+                border: none;
+                font-size: 0.65rem;
+                padding: 0.5rem;
+                color: var(--text-muted);
+                box-shadow: none !important;
+            }
+
+            .tool-btn.primary {
+                color: var(--primary);
+            }
+
+            .tool-btn svg {
+                width: 24px;
+                height: 24px;
+            }
+
+            .tool-btn span {
+                display: block;
+                /* Show text on mobile bottom bar */
+            }
+        }
+
+        @media (min-width: 769px) {
+            .toolbar {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                border-bottom: 1px solid var(--glass-border);
+                border-top: none;
+                background: var(--glass-bg);
+                padding: 0.5rem 1rem;
+                justify-content: flex-start;
+                gap: 1rem;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .sidebar-overlay {
+                display: none;
+            }
+
+            .menu-btn {
+                display: none;
+            }
+
+            .console-toggle-btn {
+                display: none;
+            }
+
+            /* Hide mobile console toggle on desktop */
+        }
+
+        .workspace-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-width: 0;
+            position: relative;
+            /* For absolute positioning context if needed */
+        }
+
+        /* Mobile Console Toggle Button */
+        .console-toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .console-toggle-btn.active {
+            background: rgba(219, 39, 119, 0.2);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .menu-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            cursor: pointer;
+            margin-right: 8px;
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen"
+        style="position: fixed; inset: 0; background: #050505; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+            <div class="status-dot"
+                style="width: 12px; height: 12px; background: var(--primary); box-shadow: 0 0 20px var(--primary);">
+            </div>
+            <div
+                style="font-family: 'JetBrains Mono'; font-size: 0.8rem; color: var(--text-muted); letter-spacing: 2px;">
+                MIRU IDE</div>
+        </div>
+    </div>
+
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar (Acode Style) -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    style="width:18px;height:18px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                EXPLORER
+            </div>
+            <button class="sidebar-close" onclick="toggleSidebar()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    style="width:20px;height:20px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="panel-content">
+            <div class="file-tree" id="fileTree"></div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <!-- Hamburger Menu (Mobile Only) -->
+            <button class="menu-btn" onclick="toggleSidebar()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    style="width:24px;height:24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+
+            <button class="back-btn" onclick="window.location.href='index.html'" title="Back to apps">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <div class="app-info">
+                <div class="app-title" id="appTitle">Loading...</div>
+                <div class="app-pkg" id="appPkg">...</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <!-- Mobile Console Toggle -->
+            <button class="console-toggle-btn" onclick="toggleConsole()" title="Toggle Console">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    style="width:20px;height:20px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </button>
+            <div class="status-indicator" id="statusIndicator">
+                <div class="status-dot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="workspace-column">
+            <!-- Tab Bar (Removed to save space, filename is now in Header) -->
+            <!-- <div class="tab-bar">
+                <div class="tab active">
+                    <span class="tab-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+                            style="width:14px;height:14px; color:#eab308;">
+                            <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z" />
+                        </svg>
+                    </span>
+                    <span class="tab-name" id="tabName">bypass.js</span>
+                    <span class="tab-close" onclick="closeTab()">×</span>
+                </div>
+            </div> -->
+
+            <!-- Code Editor -->
+            <div class="code-editor-container"
+                style="border:none; border-radius:0; margin:0; box-shadow:none; border-top:none;">
+                <div class="line-numbers" id="lineNumbers">1</div>
+                <div class="editor-wrapper">
+                    <pre id="highlighting" class="code-layer"
+                        aria-hidden="true"><code class="language-js" id="highlighting-content"></code></pre>
+                    <textarea id="codeEditor" class="code-layer" spellcheck="false" autocomplete="off" autocorrect="off"
+                        autocapitalize="off"></textarea>
+                </div>
+            </div>
+
+            <!-- Keyboard Helper -->
+            <div class="keyboard-helper">
+                <button class="key-btn" onclick="insertText('    ')">Tab</button>
+                <button class="key-btn" onclick="insertText('{')">{</button>
+                <button class="key-btn" onclick="insertText('}')">}</button>
+                <button class="key-btn" onclick="insertText('(')">(</button>
+                <button class="key-btn" onclick="insertText(')')">)</button>
+                <button class="key-btn" onclick="insertText('[')">[</button>
+                <button class="key-btn" onclick="insertText(']')">]</button>
+                <button class="key-btn" onclick="insertText(';')">;</button>
+                <button class="key-btn" onclick="insertText('=')">=</button>
+                <button class="key-btn" onclick="insertText('const ')">const</button>
+                <button class="key-btn" onclick="insertText('function ')">func</button>
+                <button class="key-btn" onclick="insertText('Java.perform(function() {\n    \n});')">Java</button>
+            </div>
+        </div>
+
+        <!-- Console -->
+        <div class="panel console-panel"
+            style="height: 200px; flex: none; border-radius:0; border:none; border-top:1px solid var(--glass-border);">
+            <div class="panel-header">
+                <div class="panel-title">CONSOLE</div>
+                <div class="panel-actions">
+                    <button class="panel-btn" onclick="runAction('inject')" title="Run Inject">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </button>
+                    <button class="panel-btn" onclick="clearConsole()" title="Clear">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                    <button class="panel-btn mobile-only" onclick="toggleConsole()" style="display:none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="panel-content">
+                <div class="console-output" id="consoleOutput"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Assume rooted if KSU is present OR if we are running under CGI path
+        const isRootedEnv = typeof ksu !== 'undefined' || window.location.href.includes('cgi-bin') || true;
+
+        // Get URL params
+        const params = new URLSearchParams(window.location.search);
+        const pkg = params.get('pkg') || localStorage.getItem('miru.selectedPkg') || 'ktbcs.netbank';
+        const label = params.get('label') || localStorage.getItem('miru.selectedLabel') || 'KTB Next';
+
+        // --- KSU / CGI Bridge ---
+        async function ksuExec(cmd) {
+            // Priority 1: Native KSU (WebView)
+            if (typeof ksu !== 'undefined' && ksu.exec) {
+                const res = await ksu.exec(cmd);
+                return res.stdout || "";
+            }
+            // Priority 2: CGI Bridge (Browser)
+            try {
+                const response = await fetch('/cgi-bin/exec', {
+                    method: 'POST',
+                    body: cmd
+                });
+                if (!response.ok) throw new Error('CGI Error');
+                const json = await response.json();
+                return atob(json.stdout_b64);
+            } catch (e) {
+                console.warn("Exec failed:", e);
+                return "";
+            }
+        }
+
+        // Update header
+        document.getElementById('appTitle').textContent = label;
+        document.getElementById('appPkg').textContent = pkg;
+        document.title = `Miru IDE - ${label}`;
+
+        // Update Status
+        const statusText = document.getElementById('statusText');
+        const statusIndicator = document.getElementById('statusIndicator');
+
+        if (isRootedEnv) {
+            statusText.textContent = "System Active";
+        } else {
+            statusText.textContent = "Demo Mode";
+            statusIndicator.style.background = 'rgba(234, 179, 8, 0.1)';
+            statusIndicator.style.borderColor = 'rgba(234, 179, 8, 0.2)';
+            statusIndicator.style.color = '#eab308';
+            document.querySelector('.status-dot').style.background = '#eab308';
+        }
+
+        // File tree data
+        let files = [];
+
+        // Render file tree
+        function renderFileTree(items, container) {
+            container.innerHTML = '';
+
+            // Add "Refresh" button at top of tree
+            const refreshBtn = document.createElement('div');
+            refreshBtn.className = 'file-item';
+            refreshBtn.innerHTML = `<span style="font-size:0.7rem; color:var(--text-dim)">↻ Refresh Files</span>`;
+            refreshBtn.onclick = refreshFiles;
+            container.appendChild(refreshBtn);
+
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'file-item';
+                empty.innerHTML = `<span style="color:var(--text-dim); font-style:italic;">No scripts found</span>`;
+                container.appendChild(empty);
+
+                // Add "Create bypass.js" button
+                const createBtn = document.createElement('div');
+                createBtn.className = 'file-item';
+                createBtn.style.color = 'var(--primary)';
+                createBtn.innerHTML = `<span>+ Create bypass.js</span>`;
+                createBtn.onclick = () => createDefaultScript();
+                container.appendChild(createBtn);
+                return;
+            }
+
+            items.forEach(item => {
+                const fileEl = document.createElement('div');
+                fileEl.className = `file-item ${item.active ? 'active' : ''}`;
+                fileEl.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    <span class="file-name">${item.name}</span>
+    `;
+                fileEl.onclick = () => loadFileContent(item.name);
+                container.appendChild(fileEl);
+            });
+        }
+
+        // --- Real File Operations ---
+        const MOD_ROOT = '/data/adb/modules/miru_ui_module/webroot';
+        const SCRIPT_BASE_PATH = `${MOD_ROOT}/scripts`;
+        const CONFIG_PATH = `${MOD_ROOT}/config/target.json`;
+
+        async function refreshFiles() {
+            addLog('info', `Listing files for ${pkg}...`);
+            try {
+                // Ensure directory exists
+                await ksuExec(`mkdir -p "${SCRIPT_BASE_PATH}/${pkg}"`);
+
+                // List files
+                const output = await ksuExec(`ls "${SCRIPT_BASE_PATH}/${pkg}"`);
+                const fileList = output.split('\n').filter(line => line.trim() !== '');
+
+                files = fileList.map(name => ({
+                    type: 'file',
+                    name: name,
+                    active: false
+                }));
+
+                renderFileTree(files, document.getElementById('fileTree'));
+
+                // If bypass.js exists, load it
+                if (files.find(f => f.name === 'bypass.js')) {
+                    loadFileContent('bypass.js');
+                } else {
+                    // Auto-create default bypass.js if missing to ensure "Beautiful" initial state
+                    addLog('info', 'Initializing workspace...');
+                    await createDefaultScript();
+                }
+            } catch (e) {
+                addLog('error', `List failed: ${e.message}`);
+            }
+        }
+
+        async function loadFileContent(filename) {
+            // Update UI
+            const tabName = document.getElementById('tabName');
+            if (tabName) tabName.textContent = filename;
+
+            // Update Header Title (User Request: Move filename to app-title div)
+            const appTitle = document.getElementById('appTitle');
+            if (appTitle) appTitle.textContent = filename;
+
+            // Show App Label in subtitle to keep context
+            const appPkg = document.getElementById('appPkg');
+            if (appPkg) appPkg.textContent = label;
+
+            files.forEach(f => f.active = (f.name === filename));
+            renderFileTree(files, document.getElementById('fileTree'));
+
+            addLog('info', `Loading ${filename}...`);
+            try {
+                const content = await ksuExec(`cat "${SCRIPT_BASE_PATH}/${pkg}/${filename}"`);
+                renderCode(content);
+                // Store current filename for save operation
+                window.currentEditingFile = filename;
+            } catch (e) {
+                addLog('error', `Load failed: ${e.message}`);
+            }
+        }
+
+        async function saveCurrentFile() {
+            const filename = window.currentEditingFile;
+            if (!filename) {
+                addLog('warn', 'No file selected to save');
+                return;
+            }
+
+            addLog('info', `Saving ${filename}...`);
+
+            const content = document.getElementById('codeEditor').value;
+
+            try {
+                // Base64 encode to avoid shell escaping issues
+                const b64 = btoa(unescape(encodeURIComponent(content)));
+                await ksuExec(`echo "${b64}" | base64 -d > "${SCRIPT_BASE_PATH}/${pkg}/${filename}"`);
+                addLog('success', `Saved ${filename}`);
+            } catch (e) {
+                addLog('error', `Save failed: ${e.message}`);
+            }
+        }
+
+        async function createDefaultScript() {
+            addLog('info', 'Creating default bypass.js...');
+            const template = `// Miru Bypass for ${pkg}
+    // Created: ${new Date().toLocaleString()}
+
+    Java.perform(function() {
+    console.log("[*] Hooking started for ${pkg}");
+
+    // Example: Hook Activity
+    // var Activity = Java.use("android.app.Activity");
+    // Activity.onCreate.implementation = function(bundle) {
+    // console.log("[*] Activity created: " + this.getClass().getName());
+    // this.onCreate(bundle);
+    // };
+    });`;
+
+            try {
+                // Save template
+                const b64 = btoa(unescape(encodeURIComponent(template)));
+                await ksuExec(`echo "${b64}" | base64 -d > "${SCRIPT_BASE_PATH}/${pkg}/bypass.js"`);
+
+                // Refresh list
+                await refreshFiles();
+                addLog('success', 'Created bypass.js');
+            } catch (e) {
+                addLog('error', `Create failed: ${e.message}`);
+            }
+        }
+
+        // Initial Load
+        // renderFileTree([], document.getElementById('fileTree')); // Clear initial
+        if (isRootedEnv) {
+            setTimeout(refreshFiles, 500); // Give time for connection
+        }
+
+        // Load Bypass Script (Deprecated in favor of refreshFiles)
+        async function loadBypassScript() {
+            // Placeholder kept for compatibility if needed, but logic moved to refreshFiles
+        }
+
+        // Render code with line numbers and syntax highlighting
+        function renderCode(code) {
+            if (!code) code = "";
+
+            const textarea = document.getElementById('codeEditor');
+            const highlighting = document.getElementById('highlighting');
+            const highlightingContent = document.getElementById('highlighting-content');
+
+            textarea.value = code;
+
+            // Initial highlight
+            updateHighlighting(code);
+            updateLineNumbers();
+
+            // Sync scroll
+            textarea.onscroll = () => {
+                highlighting.scrollTop = textarea.scrollTop;
+                highlighting.scrollLeft = textarea.scrollLeft;
+                document.getElementById('lineNumbers').scrollTop = textarea.scrollTop;
+            };
+
+            // Input handling
+            textarea.oninput = () => {
+                updateHighlighting(textarea.value);
+                updateLineNumbers();
+            };
+
+            // Tab handling
+            textarea.onkeydown = (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    const val = textarea.value;
+                    textarea.value = val.substring(0, start) + "    " + val.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = start + 4;
+                    updateHighlighting(textarea.value);
+                }
+            };
+        }
+
+        function updateHighlighting(text) {
+            let result = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Simple JS Syntax Highlighting Regex
+            // Order matters!
+
+            // Comments (//...)
+            result = result.replace(/(\/\/[^\n]*)/g, '<span class="hl-comment">$1</span>');
+
+            // Strings ("..." or '...') - simplistic
+            result = result.replace(/(".*?"|'.*?')/g, '<span class="hl-string">$1</span>');
+
+            // Keywords
+            const keywords = /\b(async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|false|finally|for|function|if|import|in|instanceof|new|null|return|super|switch|this|throw|true|try|typeof|var|void|while|with|let|static|yield)\b/g;
+            result = result.replace(keywords, '<span class="hl-keyword">$1</span>');
+
+            // Functions (word followed by ()
+            result = result.replace(/\b([a-zA-Z_$][a-zA-Z0-9_$]*)(?=\()/g, '<span class="hl-function">$1</span>');
+
+            // Numbers
+            result = result.replace(/\b(\d+)\b/g, '<span class="hl-number">$1</span>');
+
+            // Java.use, Java.perform (Frida specifics)
+            result = result.replace(/\b(Java)\b/g, '<span class="hl-class">$1</span>');
+
+            // Ensure trailing newline for sync
+            if (text[text.length - 1] === "\n") {
+                result += " ";
+            }
+
+            document.getElementById('highlighting-content').innerHTML = result;
+        }
+
+        function updateLineNumbers() {
+            const textarea = document.getElementById('codeEditor');
+            const lines = textarea.value.split('\n').length;
+            document.getElementById('lineNumbers').innerHTML = Array(lines).fill(0).map((_, i) => i + 1).join('<br>');
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Console logs
+        const consoleLogs = [];
+
+        function addLog(type, msg) {
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            consoleLogs.push({ time, type, msg });
+            renderConsole();
+        }
+
+        function renderConsole() {
+            const output = document.getElementById('consoleOutput');
+            output.innerHTML = consoleLogs.map(log => `
+    <div class="console-line">
+        <span class="console-time">${log.time}</span>
+        <span class="console-type ${log.type}">${log.type}</span>
+        <span class="console-msg">${log.msg}</span>
+    </div>
+    `).join('');
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleLogs.length = 0;
+            renderConsole();
+            addLog('info', 'Console cleared');
+        }
+
+        // Initial logs
+        addLog('info', `Miru IDE initialized for ${label}`);
+        if (isRootedEnv) {
+            addLog('success', 'Connected to device (System Access)');
+            loadBypassScript();
+        } else {
+            addLog('warn', 'Running in Demo Mode');
+        }
+        addLog('info', `Target package: ${pkg}`);
+
+        // Actions
+        async function updateTargetConfig() {
+            addLog('info', 'Updating target.json...');
+            try {
+                // Read current config
+                let content = "{}";
+                try {
+                    content = await ksuExec(`cat "${CONFIG_PATH}"`);
+                } catch (e) {
+                    addLog('warn', 'Config not found, creating new...');
+                }
+
+                let config = JSON.parse(content || '{"targets":{}}');
+                if (!config.targets) config.targets = {};
+
+                // Update entry
+                config.targets[pkg] = {
+                    name: label,
+                    enabled: true,
+                    scripts: {
+                        primary: `scripts/${pkg}/bypass.js`
+                    }
+                };
+
+                // Save config
+                let jsonStr = JSON.stringify(config, null, 2);
+                let b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+                await ksuExec(`echo "${b64}" | base64 -d > "${CONFIG_PATH}"`);
+
+                addLog('success', 'Config updated! Module will load this script.');
+            } catch (e) {
+                addLog('error', `Config update failed: ${e.message}`);
+                throw e;
+            }
+        }
+
+        async function runAction(action) {
+            addLog('info', `Running ${action}...`);
+
+            if (!isRootedEnv) {
+                setTimeout(() => {
+                    addLog('warn', 'Demo Mode: Action simulated');
+                }, 500);
+                return;
+            }
+
+            try {
+                switch (action) {
+                    case 'inject':
+                        // 1. Update Config first
+                        await updateTargetConfig();
+
+                        // 2. Kill app
+                        await ksuExec(`am force-stop ${pkg}`);
+                        addLog('info', `Stopped ${pkg}`);
+
+                        // 3. Start app
+                        await ksuExec(`monkey -p ${pkg} -c android.intent.category.LAUNCHER 1`);
+                        addLog('success', `Started ${pkg}`);
+                        break;
+
+                    case 'hook':
+                        addLog('info', 'Refreshing hooks...');
+                        break;
+
+                    case 'dump':
+                        addLog('info', 'Dumping DEX files...');
+                        // Real dump logic here
+                        break;
+
+                    case 'trace':
+                        addLog('info', 'Starting method trace');
+                        break;
+                }
+            } catch (e) {
+                addLog('error', `Action failed: ${e.message}`);
+            }
+        }
+
+        function selectFile(name) {
+            // Deprecated, mapped to loadFileContent
+            loadFileContent(name);
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        // Keyboard Helper
+        function insertText(text) {
+            const textarea = document.getElementById('codeEditor');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const val = textarea.value;
+
+            textarea.value = val.substring(0, start) + text + val.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + text.length;
+
+            updateHighlighting(textarea.value);
+            updateLineNumbers();
+            textarea.focus();
+        }
+
+        // Tab Management
+        function closeTab() {
+            renderCode('');
+            const tabName = document.getElementById('tabName');
+            if (tabName) tabName.textContent = 'No file';
+            window.currentEditingFile = null;
+        }
+
+        // Sidebar Toggle (Mobile)
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+
+            // Close console if open
+            document.querySelector('.console-panel').classList.remove('open');
+            document.querySelector('.console-toggle-btn').classList.remove('active');
+
+            sidebar.classList.toggle('open');
+            // Use 'visible' as defined in CSS line 247
+            overlay.classList.toggle('visible');
+        }
+
+        // Console Toggle (Mobile)
+        function toggleConsole() {
+            const panel = document.querySelector('.console-panel');
+            const btn = document.querySelector('.console-toggle-btn');
+
+            // Close sidebar if open
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.remove('open');
+
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (overlay) overlay.classList.remove('visible');
+
+            panel.classList.toggle('open');
+            btn.classList.toggle('active');
+
+            // Show/hide close button in panel header for mobile
+            const closeBtn = panel.querySelector('.mobile-only');
+            if (window.innerWidth <= 768 && closeBtn) {
+                closeBtn.style.display = panel.classList.contains('open') ? 'block' : 'none';
+            }
+        }
+
+        // Splash Screen Logic
+        (function () {
+            const removeSplash = () => {
+                const splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => {
+                        if (splash.parentNode) splash.parentNode.removeChild(splash);
+                    }, 500);
+                }
+            };
+
+            // Try normal load
+            window.addEventListener('load', () => setTimeout(removeSplash, 800));
+
+            // Fallback: Force remove after 3s (safety net)
+            setTimeout(removeSplash, 3000);
+        })();
+    </script>
+</body>
+
+</html>

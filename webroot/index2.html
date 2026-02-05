@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Miru Next</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --background: #050505;
+            --primary: #db2777;
+            /* Pink-600 */
+            --primary-glow: rgba(219, 39, 119, 0.4);
+            --text-main: #ffffff;
+            --text-muted: #a3a3a3;
+            --glass-bg: rgba(20, 20, 20, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background-image:
+                radial-gradient(circle at 50% 0%, #1a1a1a 0%, transparent 70%),
+                radial-gradient(circle at 80% 80%, rgba(219, 39, 119, 0.15) 0%, transparent 50%);
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            width: 100%;
+            max-width: 480px;
+            /* Increased width slightly */
+            animation: fadeIn 0.8s ease-out;
+            background: rgba(10, 10, 10, 0.4);
+            /* Subtle container bg */
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .logo-wrapper {
+            margin-bottom: 1.5rem;
+            position: relative;
+            display: inline-block;
+            /* Center logo better */
+        }
+
+        .logo {
+            width: 96px;
+            height: 96px;
+            border-radius: 20px;
+            box-shadow: 0 0 40px var(--primary-glow);
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #ccc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 2.5rem;
+            line-height: 1.5;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .app-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+            text-align: left;
+            max-height: 50vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        /* Custom Scrollbar */
+        .app-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .app-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+
+        .app-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .app-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .app-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 0.9rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+        }
+
+        .app-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-1px);
+        }
+
+        .app-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 0;
+            margin-right: 1rem;
+        }
+
+        .app-name {
+            font-size: 0.95rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-package {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            object-fit: cover;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.875rem;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 20px rgba(219, 39, 119, 0.3);
+            border: 1px solid transparent;
+        }
+
+        .btn-primary:hover {
+            background: #be185d;
+            /* Pink-700 */
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(219, 39, 119, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-muted);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 20px;
+            color: #10b981;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.875rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 3rem;
+            font-size: 0.75rem;
+            color: #444;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo-wrapper">
+            <img src="Assets/bank/Miru-logo.png" alt="Miru" class="logo">
+        </div>
+
+        <h1>Miru Next</h1>
+
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            <span>System Active</span>
+        </div>
+
+        <div class="actions">
+            <input type="text" id="appSearch" class="search-input" placeholder="Search apps / ค้นหาแอพ...">
+            <div class="app-list">
+                <div class="app-item" onclick="selectApp('ktbcs.netbank', 'KTB Next')">
+                    <div class="app-meta">
+                        <div class="app-name">KTB Next</div>
+                        <div class="app-package">ktbcs.netbank</div>
+                    </div>
+                    <img src="Assets/bank/KTB.jpg" alt="KTB" class="app-logo">
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            v2.9.5 (Hotfix17) • DevSKY & Miruko
+        </div>
+    </div>
+
+    <script>
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const isRootedEnv = typeof ksu !== 'undefined' || window.location.href.includes('cgi-bin');
+
+        const statusBadge = document.querySelector('.status-badge');
+        const statusDot = document.querySelector('.status-dot');
+        const statusText = statusBadge.querySelector('span');
+
+        if (isRootedEnv) {
+            statusText.textContent = 'System Active';
+            statusBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+            statusBadge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+            statusDot.style.background = '#10b981';
+            statusDot.style.boxShadow = '0 0 8px #10b981';
+        } else {
+            statusText.textContent = isAndroid ? 'Android (No Root)' : 'PC Demo Mode';
+            statusBadge.style.background = 'rgba(234, 179, 8, 0.1)';
+            statusBadge.style.borderColor = 'rgba(234, 179, 8, 0.2)';
+            statusDot.style.background = '#eab308';
+            statusDot.style.boxShadow = '0 0 8px #eab308';
+            statusBadge.style.color = '#eab308';
+        }
+
+        // --- KSU Exec Bridge ---
+        async function ksuExec(cmd) {
+            // 1. KSU Manager Injection
+            if (typeof ksu !== 'undefined' && ksu.exec) {
+                const res = await ksu.exec(cmd);
+                return res.stdout || "";
+            }
+
+            // 2. HTTPD CGI Bridge (for Remote/Browser access)
+            try {
+                const response = await fetch('/cgi-bin/exec', {
+                    method: 'POST',
+                    body: cmd
+                });
+                if (!response.ok) throw new Error('CGI Error');
+                const json = await response.json();
+                if (json.errno !== 0) throw new Error(atob(json.stderr_b64) || `Exit code ${json.errno}`);
+                return atob(json.stdout_b64);
+            } catch (e) {
+                console.warn("Exec failed:", e);
+                throw e;
+            }
+        }
+
+        async function loadApps() {
+            const listEl = document.querySelector('.app-list');
+            const statusText = document.querySelector('.status-badge span');
+
+            statusText.textContent = "Loading apps...";
+
+            try {
+                // 1. Load Name Mapping (User Overrides)
+                let nameMap = {};
+                try {
+                    const res = await fetch('config/namepack.json');
+                    nameMap = await res.json();
+                } catch (e) { console.log("No namepack found"); }
+
+                // 2. Fetch Apps (Try Smart CGI first, then Legacy)
+                let apps = [];
+                try {
+                    // Try to get real labels from device
+                    const res = await fetch('/cgi-bin/get_apps');
+                    if (!res.ok) throw new Error("CGI Error");
+                    apps = await res.json();
+                } catch (e) {
+                    console.log("Using legacy listing...", e);
+                    const out = await ksuExec('pm list packages -3');
+                    apps = out.split('\n')
+                        .filter(l => l.startsWith('package:'))
+                        .map(l => {
+                            const p = l.replace('package:', '').trim();
+                            return { pkg: p, name: p };
+                        });
+                }
+
+                if (apps.length === 0) throw new Error("No apps found");
+
+                // 3. Render
+                listEl.innerHTML = ''; // Clear hardcoded
+
+                apps.forEach(app => {
+                    const pkg = app.pkg;
+                    // Priority: NamePack > System Label > Package Name
+                    const name = nameMap[pkg] || app.name || pkg;
+
+                    // Dynamic Icon Logic: Try Assets/apps/<pkg>.png -> Fallback Chain
+                    const item = document.createElement('div');
+                    item.className = 'app-item';
+                    item.onclick = () => selectApp(pkg, name);
+
+                    item.innerHTML = `
+            <div class="app-meta">
+              <div class="app-name">${name}</div>
+              <div class="app-package">${pkg}</div>
+            </div>
+            <img src="Assets/apps/${pkg}.png" 
+                 alt="${name}" 
+                 class="app-logo"
+                 style="background: rgba(255,255,255,0.1); padding: 4px;"
+                 onerror="handleIconError(this, '${pkg}')">
+          `;
+                    listEl.appendChild(item);
+                });
+
+                statusText.textContent = `System Active (${apps.length} apps)`;
+                
+                // Success state - turn green
+                statusBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+                statusBadge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                statusDot.style.background = '#10b981';
+                statusDot.style.boxShadow = '0 0 8px #10b981';
+                statusBadge.style.color = '#10b981';
+
+                // Re-trigger search if input has value
+                const searchVal = document.getElementById('appSearch').value;
+                if (searchVal) {
+                    document.getElementById('appSearch').dispatchEvent(new Event('input'));
+                }
+
+            } catch (e) {
+                console.error(e);
+                statusText.textContent = "System Active (Offline/Demo)";
+                // Keep hardcoded list if fetch fails
+            }
+        }
+
+        if (isRootedEnv || true) { // Always try to load
+            loadApps();
+        }
+
+        function selectApp(pkg, label) {
+            try {
+                localStorage.setItem('miru.selectedPkg', pkg);
+                localStorage.setItem('miru.selectedLabel', label);
+            } catch (e) { }
+
+            // Explicitly construct absolute URL using origin to avoid any relative path ambiguity
+            const baseUrl = window.location.origin;
+            const target = baseUrl + '/ide.html?pkg=' + encodeURIComponent(pkg) + '&label=' + encodeURIComponent(label);
+
+            console.log('Navigating to:', target); // Debug log
+            window.location.href = target;
+        }
+
+        // Search functionality
+        document.getElementById('appSearch').addEventListener('input', function (e) {
+            const term = e.target.value.toLowerCase();
+            const apps = document.querySelectorAll('.app-item');
+
+            apps.forEach(app => {
+                const name = app.querySelector('.app-name').textContent.toLowerCase();
+                const pkg = app.querySelector('.app-package').textContent.toLowerCase();
+
+                if (name.includes(term) || pkg.includes(term)) {
+                    app.style.display = 'flex';
+                } else {
+                    app.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

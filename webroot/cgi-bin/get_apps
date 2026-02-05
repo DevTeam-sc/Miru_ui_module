@@ -1,0 +1,38 @@
+#!/system/bin/sh
+echo "Content-Type: application/json"
+echo ""
+
+echo "["
+FIRST=1
+# Get 3rd party packages
+PKGS=$(pm list packages -3 2>/dev/null | sed 's/package://g')
+
+for PKG in $PKGS; do
+    if [ "$FIRST" -eq 1 ]; then FIRST=0; else echo ","; fi
+    
+    # Default name is package name
+    NAME="$PKG"
+    
+    # Try to extract label using 'cmd package' (Android 7+)
+    # Remove --brief to get full details including nonLocalizedLabel
+    # We grab the first occurrence (usually ActivityInfo)
+    LABEL_RAW=$(cmd package resolve-activity $PKG 2>/dev/null | grep 'nonLocalizedLabel=' | head -n 1)
+    
+    if [ ! -z "$LABEL_RAW" ]; then
+        # Format is usually: ... nonLocalizedLabel=App Name icon=...
+        # We extract everything between nonLocalizedLabel= and icon=
+        # Use sed to strip prefix and suffix
+        EXTRACTED_NAME=$(echo "$LABEL_RAW" | sed 's/.*nonLocalizedLabel=//' | sed 's/ icon=.*//')
+        
+        # Check if extracted name is valid (not null, not empty)
+        if [ "$EXTRACTED_NAME" != "null" ] && [ ! -z "$EXTRACTED_NAME" ]; then
+            NAME="$EXTRACTED_NAME"
+        fi
+    fi
+    
+    # Sanitize: Escape double quotes in name and backslashes
+    NAME=$(echo "$NAME" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+    
+    echo "{\"pkg\": \"$PKG\", \"name\": \"$NAME\"}"
+done
+echo "]"

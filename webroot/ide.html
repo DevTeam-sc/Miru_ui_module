@@ -1,0 +1,4012 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Miru IDE</title>
+    <!-- JMuxer for H.264 Streaming (Must be loaded before Monaco loader to avoid AMD conflict) -->
+    <script src="jmuxer.min.js"></script>
+    <!-- Monaco Editor Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <!-- Prettier for Code Formatting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prettier/2.8.8/standalone.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prettier/2.8.8/parser-babel.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --background: 240 10% 3%;
+            --foreground: 0 0% 98%;
+            --primary: 330 85% 60%;
+            --muted: 240 4% 16%;
+            --muted-foreground: 240 5% 65%;
+            --border: 240 4% 16%;
+            --glass-bg: rgba(0, 0, 0, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #050505;
+            color: hsl(var(--foreground));
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Utility */
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+        }
+
+        /* Navbar */
+        .navbar {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(10, 10, 10, 0.95);
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            color: hsl(var(--primary));
+            font-size: 1rem;
+        }
+
+        .nav-brand img {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+        }
+
+        .marquee {
+            animation: marquee 10s linear infinite;
+            padding-left: 100%;
+        }
+
+        @keyframes marquee {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(-100%, 0);
+            }
+        }
+
+        .nav-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.6rem;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid var(--glass-border);
+            background: hsl(var(--muted));
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-sm:hover {
+            background: hsl(var(--muted) / 0.8);
+        }
+
+        /* IDE Layout */
+        .ide-main {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+        }
+
+        /* Panel 1: Explorer */
+        .explorer-section {
+            width: 240px;
+            background: #080808;
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .explorer-header {
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: hsl(var(--muted-foreground));
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.02);
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .file-delete-btn {
+            /* Removed margin-left: auto; as it's now in a flex container */
+            opacity: 0;
+            color: #ff4444;
+            font-weight: bold;
+            padding: 0 4px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .file-action-btn {
+            opacity: 0;
+            font-weight: bold;
+            padding: 0 4px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .file-item:hover .file-delete-btn,
+        .file-item:hover .file-action-btn {
+            opacity: 1;
+        }
+
+        .file-action-btn:hover {
+            color: #fff !important;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .file-tree {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+            padding: 0.5rem;
+        }
+
+        .file-tree div.active {
+            background: rgba(255, 255, 255, 0.08) !important;
+            color: hsl(var(--primary));
+            border-left: 2px solid hsl(var(--primary));
+        }
+
+        /* Content Wrapper (Editor + Console) */
+        .content-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: #0c0c0c;
+        }
+
+        /* Panel 2: Editor */
+        .editor-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .editor-header {
+            height: 36px;
+            display: flex;
+            align-items: center;
+            padding: 0 1rem;
+            background: #111;
+            border-bottom: 1px solid var(--glass-border);
+            font-size: 0.8rem;
+        }
+
+        .editor-tabs {
+            display: flex;
+            gap: 1px;
+            height: 100%;
+        }
+
+        .tab {
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            background: #1a1a1a;
+            border-right: 1px solid var(--glass-border);
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .tab.active {
+            background: #0c0c0c;
+            color: #fff;
+            border-top: 2px solid hsl(var(--primary));
+        }
+
+        /* Panel 3: Console */
+        .console-section {
+            height: 200px;
+            /* Default height */
+            background: #080808;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .console-header {
+            padding: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--glass-border);
+            height: 32px;
+        }
+
+        .console-tabs {
+            display: flex;
+            height: 100%;
+        }
+
+        .console-tab {
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            border-right: 1px solid var(--glass-border);
+            transition: all 0.2s;
+        }
+
+        .console-tab:hover {
+            color: #ccc;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .console-tab.active {
+            color: hsl(var(--primary));
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 2px solid hsl(var(--primary));
+        }
+
+        .console-actions {
+            display: flex;
+            align-items: center;
+            padding-right: 8px;
+            gap: 4px;
+        }
+
+        .console-output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #ccc;
+            display: none;
+            /* Hidden by default, toggled via JS */
+        }
+
+        .console-output.active {
+            display: block;
+        }
+
+        .console-line {
+            padding: 1px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .console-line:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .console-line::before {
+            content: "> ";
+            color: hsl(var(--primary));
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        /* Resizers */
+        .resizer-vertical {
+            width: 4px;
+            cursor: col-resize;
+            background: transparent;
+            border-right: 1px solid var(--glass-border);
+            transition: background 0.2s;
+        }
+
+        .resizer-vertical:hover,
+        .resizer-vertical.resizing {
+            background: hsl(var(--primary));
+        }
+
+        .resizer-horizontal {
+            height: 4px;
+            cursor: row-resize;
+            background: transparent;
+            border-top: 1px solid var(--glass-border);
+            transition: background 0.2s;
+        }
+
+        .resizer-horizontal:hover,
+        .resizer-horizontal.resizing {
+            background: hsl(var(--primary));
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            #mini-stream-panel {
+                display: none !important;
+            }
+
+            .ide-main {
+                flex-direction: column;
+                position: relative;
+            }
+
+            .resizer-vertical,
+            .resizer-horizontal {
+                display: none;
+            }
+
+            .explorer-section {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 80%;
+                max-width: 300px;
+                background: #080808;
+                border-right: 1px solid var(--glass-border);
+                z-index: 100;
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                display: flex;
+                box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+                height: auto;
+                /* override 150px from previous */
+            }
+
+            /* Hidden by default on mobile for now */
+            .explorer-section.open {
+                transform: translateX(0);
+                display: flex;
+            }
+
+            /* Console Mobile (Slide Up) */
+            .console-section {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 40vh;
+                background: #080808;
+                border-top: 1px solid var(--glass-border);
+                z-index: 100;
+                transform: translateY(100%);
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
+            }
+
+            .console-section.open {
+                transform: translateY(0);
+            }
+
+            /* Backdrop for mobile drawer */
+            .explorer-backdrop {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 99;
+                display: none;
+                backdrop-filter: blur(2px);
+            }
+
+            .explorer-backdrop.open {
+                display: block;
+            }
+
+            .navbar {
+                padding: 0 0.5rem;
+            }
+
+            .nav-brand span {
+                display: none;
+            }
+        }
+
+        /* Modal System */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .modal {
+            background: #111;
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 360px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalPop {
+            from {
+                transform: scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .modal-msg {
+            font-size: 0.9rem;
+            color: #ccc;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .btn-modal {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            border: 1px solid var(--glass-border);
+            background: #222;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .btn-modal:hover {
+            background: #333;
+        }
+
+        .btn-modal.primary {
+            background: hsl(var(--primary));
+            color: #000;
+            border-color: hsl(var(--primary));
+        }
+
+        .btn-modal.primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-modal.danger {
+            background: #ff4444;
+            color: #fff;
+            border-color: #ff4444;
+        }
+
+        /* Dropdown Menu */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #1a1a1a;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            margin-top: 5px;
+        }
+
+        .dropdown-content button {
+            color: #e0e0e0;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .dropdown-content button:hover {
+            background-color: #333;
+        }
+
+        .dropdown-content.show {
+            display: block;
+        }
+
+        /* Tree View Styles */
+        .tree-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            color: #ccc;
+            font-size: 13px;
+            user-select: none;
+            border-radius: 4px;
+        }
+
+        .tree-item svg,
+        .arrow-icon,
+        .arrow-placeholder {
+            flex-shrink: 0;
+        }
+
+        .tree-item span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tree-item:hover {
+            background-color: #2a2a2a;
+        }
+
+        .tree-item.active {
+            background-color: #37373d;
+            color: #fff;
+        }
+
+        .tree-children {
+            display: none;
+            padding-left: 10px;
+            margin-left: 4px;
+            border-left: 1px solid #333;
+        }
+
+        .tree-children.open {
+            display: block;
+        }
+
+        .arrow-icon {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.15s;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .arrow-icon.open {
+            transform: rotate(90deg);
+        }
+
+        .arrow-placeholder {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Floating Window Mode */
+        .floating-window {
+            position: fixed !important;
+            top: 20%;
+            left: 20%;
+            /* Removed fixed size to allow resize */
+            min-width: 200px;
+            min-height: 150px;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--glass-border);
+            resize: both;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #080808;
+            border-radius: 8px;
+            animation: floatPop 0.2s ease-out;
+        }
+
+        @keyframes floatPop {
+            from {
+                transform: scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .floating-window .console-header,
+        .floating-window .panel-header {
+            cursor: move;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Keyboard Helper (Mobile) - Removed */
+        /* .keyboard-helper { display: none; } */
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            #mini-stream-panel {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="navbar">
+        <a href="index.html" class="nav-brand" style="text-decoration: none;">
+            <img src="Assets/bank/Miru-logo.png" alt="Miru">
+            <div id="brand-container" style="overflow: hidden; max-width: 50vw; display: flex;">
+                <span id="brand-text" style="white-space: nowrap;">MIRU IDE</span>
+            </div>
+        </a>
+        <div class="nav-actions">
+            <!-- Dropdown Menu -->
+            <div class="dropdown">
+                <button class="btn-sm" onclick="toggleNavDropdown()" title="Menu">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="12" cy="5" r="1"></circle>
+                        <circle cx="12" cy="19" r="1"></circle>
+                    </svg>
+                    <span>Menu</span>
+                </button>
+                <div id="nav-dropdown" class="dropdown-content">
+                    <button onclick="restartTargetApp()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                        Restart App
+                    </button>
+                    <button onclick="clearAppData()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                        Clear Data
+                    </button>
+                    <button onclick="toggleExplorer()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <line x1="9" y1="3" x2="9" y2="21" />
+                        </svg>
+                        Toggle Files
+                    </button>
+                    <button onclick="toggleConsole()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="4 17 10 11 4 5"></polyline>
+                            <line x1="12" y1="19" x2="20" y2="19"></line>
+                        </svg>
+                        Toggle Logs
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stream Button -->
+            <button class="btn-sm" onclick="openStreamModal()" title="View Screen Stream" style="margin-right: 8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <span>Stream</span>
+            </button>
+
+            <!-- Run Button (Kept Visible) -->
+            <button class="btn-sm" onclick="runScript()" style="background: hsl(var(--primary)); color: #000;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Run</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="ide-main">
+        <!-- Backdrop -->
+        <div class="explorer-backdrop" id="explorer-backdrop" onclick="toggleExplorer()"></div>
+
+        <!-- Panel 1: Explorer -->
+        <aside class="explorer-section" id="explorer-panel">
+            <div class="explorer-header">
+                <span id="explorer-title">EXPLORER</span>
+                <div style="display: flex; gap: 4px;">
+                    <button class="icon-btn" onclick="toggleMiniStream()" title="Toggle Mini Stream"
+                        id="btn-mini-stream">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <polygon points="10 8 16 11 10 14 10 8" fill="currentColor"></polygon>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" onclick="toggleExplorer()" title="Toggle Explorer">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="3" x2="9" y2="21"></line>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" onclick="createNewFile()" title="New File">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" onclick="createNewFolder()" title="New Folder (Package)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z">
+                            </path>
+                            <line x1="12" y1="11" x2="12" y2="17"></line>
+                            <line x1="9" y1="14" x2="15" y2="14"></line>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" onclick="listWorkspaceFiles()" title="Refresh">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="file-tree" id="file-list">
+                <!-- Placeholder -->
+                <div style="padding: 1rem; text-align: center; color: #444; font-size: 0.8rem;">
+                    No workspace open
+                </div>
+            </div>
+
+            <!-- Resizer for Mini Stream -->
+            <div id="resizer-stream" class="resizer-horizontal"
+                style="display: block; cursor: row-resize; height: 12px; margin-top: -6px; z-index: 10; background: transparent; border-top: 1px solid var(--glass-border); position: relative;">
+                <div
+                    style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px;">
+                </div>
+            </div>
+
+            <!-- Mini Stream View -->
+            <div id="mini-stream-panel"
+                style="display:flex; flex-direction:column; height: 200px; flex-shrink: 0; border-top: 1px solid var(--glass-border); background: #000;">
+                <div class="panel-header" ondblclick="toggleFloat('mini-stream-panel')"
+                    style="padding: 4px 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--glass-border); cursor: grab;">
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <span id="stream-title"
+                            style="font-size: 10px; font-weight: bold; color: hsl(var(--primary));">LIVE STREAM</span>
+
+                        <!-- Capture -->
+                        <button class="icon-btn" onclick="captureScreen()" title="Capture Screen"
+                            style="width: 16px; height: 16px; opacity:0.7;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path
+                                    d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                                </path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                        </button>
+
+                        <!-- Sun Mode (Stay Awake) -->
+                        <button class="icon-btn" id="btn-stay-awake" onclick="toggleStayAwake()"
+                            title="Always On (Sun Mode)" style="width: 16px; height: 16px; opacity:0.5;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                            </svg>
+                        </button>
+
+                        <!-- Remote Controls -->
+                        <div style="width:1px; height:12px; background:var(--glass-border); margin:0 2px;"></div>
+
+                        <button class="icon-btn" onclick="sendKey(26)" title="Power" style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                                <line x1="12" y1="2" x2="12" y2="12"></line>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" onclick="sendKey(24)" title="Vol+" style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" onclick="sendKey(25)" title="Vol-" style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn" onclick="toggleStreamMode()" title="Switch Engine (H.264/MJPEG)"
+                            style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" onclick="configureStreamHost()" title="Config Host"
+                            style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path
+                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                </path>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" onclick="toggleFloat('mini-stream-panel')" title="Float/Dock"
+                            style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" onclick="reloadMiniStream()" title="Reload"
+                            style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M23 4v6h-6"></path>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" onclick="openScrcpy()" title="Launch Native Scrcpy (Smoother)"
+                            style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                <line x1="12" y1="18" x2="12" y2="18.01"></line>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" onclick="goWireless()" title="Go Wireless (Vysor Mode)"
+                            style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                                <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                                <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" id="btn-turbo-mode" onclick="toggleTurboMode()"
+                            title="Turbo Mode (Low Res)" style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
+                        </button>
+                        <button class="icon-btn" id="btn-stream-engine" onclick="toggleStreamMode()"
+                            title="Stream Engine: H.264 (Fast) / MJPEG (Slow)"
+                            style="width: 16px; height: 16px; color: #ffcc00;">
+                            <span style="font-size: 8px; font-weight: bold;">HD</span>
+                        </button>
+                        <button class="icon-btn" onclick="toggleMiniStream()" title="Close"
+                            style="width: 16px; height: 16px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div
+                    style="flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative;">
+                    <img id="mini-stream-img" src=""
+                        style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-drag: none; display: none;"
+                        draggable="false" ondragstart="return false;" alt="Offline">
+                    <video id="mini-stream-video" autoplay muted playsinline
+                        style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: crosshair; touch-action: none; display: none;"></video>
+                    <div id="mini-stream-overlay"
+                        style="position: absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); color:#fff; font-size:10px; opacity:0; pointer-events:none;">
+                        Connecting...
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Resizer Vertical -->
+        <div class="resizer-vertical" id="resizer-v"></div>
+
+        <!-- Content -->
+        <div class="content-wrapper" id="content-panel">
+            <!-- Panel 2: Editor -->
+            <section class="editor-section" id="editor-panel">
+                <div class="editor-header">
+                    <div class="editor-tabs">
+                        <div class="tab active">
+                            <span id="active-file-tab">No File</span>
+                            <span onclick="closeFile(event)"
+                                style="margin-left: 8px; opacity: 0.6; cursor: pointer; font-size: 14px; line-height: 1;">&times;</span>
+                        </div>
+                    </div>
+                    <div style="margin-left: auto; display: flex; align-items: center; padding-right: 8px;">
+                        <button class="btn-sm" onclick="formatCode()" title="Format Code (Shift+Alt+F)"
+                            style="margin-right: 4px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"></polyline>
+                                <polyline points="8 6 2 12 8 18"></polyline>
+                            </svg>
+                        </button>
+                        <button class="btn-sm" onclick="saveCurrentFile()" title="Save (Ctrl+S)">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Keyboard Helper (Removed) -->
+                <!-- <div class="keyboard-helper"></div> -->
+
+                <div id="playground-code" style="width: 100%; height: 100%;"></div>
+            </section>
+
+            <!-- Resizer Horizontal -->
+            <div class="resizer-horizontal" id="resizer-h"></div>
+
+            <!-- Panel 3: Console -->
+            <section class="console-section" id="console-panel">
+                <div class="console-header">
+                    <div class="console-tabs">
+                        <div class="console-tab active" id="tab-system" onclick="switchConsole('system')">System</div>
+                        <div class="console-tab" id="tab-script" onclick="switchConsole('script')">Script</div>
+                    </div>
+                    <div style="flex:1"></div>
+                    <button class="btn-sm" onclick="toggleFloat('console-panel')"
+                        style="padding: 2px 6px; font-size: 10px; margin-right: 4px;" title="Float/Dock">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                        </svg>
+                    </button>
+                    <button class="btn-sm" onclick="togglePiP()"
+                        style="padding: 2px 6px; font-size: 10px; margin-right: 4px;" title="Floating Log (PiP)">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <rect x="12" y="12" width="6" height="6" />
+                        </svg>
+                    </button>
+                    <button class="btn-sm" onclick="clearConsole()"
+                        style="padding: 2px 6px; font-size: 10px; margin-right: 4px;">Clear</button>
+                    <button class="btn-sm" onclick="toggleConsole()" style="padding: 2px 6px; font-size: 10px;">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                </div>
+                <div id="console-output-system" class="console-output active">
+                    <div class="console-line">Miru IDE initialized (v5.0).</div>
+                </div>
+                <div id="console-output-script" class="console-output">
+                    <div class="console-line" style="color:#666">// Script Output</div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Copy Notification Toast -->
+    <div id="copy-toast" style="
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+        z-index: 9999;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    ">Copied to clipboard!</div>
+
+    <!-- Custom Confirm Modal -->
+    <div class="modal-backdrop" id="confirm-modal">
+        <div class="modal">
+            <div class="modal-title" id="confirm-title">Confirm</div>
+            <div class="modal-msg" id="confirm-msg">Are you sure?</div>
+            <div class="modal-actions">
+                <button class="btn-modal" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn-modal primary" id="confirm-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Input Modal -->
+    <div class="modal-backdrop" id="input-modal">
+        <div class="modal">
+            <div class="modal-title" id="input-title">Input</div>
+            <div class="modal-msg" id="input-msg" style="white-space: pre-wrap;">Enter value:</div>
+            <input type="text" id="input-value"
+                style="width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; margin-bottom: 1rem; font-family: monospace;">
+            <div class="modal-actions">
+                <button class="btn-modal" onclick="closeInputModal()">Cancel</button>
+                <button class="btn-modal primary" id="input-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stream Modal -->
+    <div class="modal-backdrop" id="stream-modal">
+        <div class="modal" style="max-width: 800px; width: 90%;">
+            <div class="modal-title">Screen Stream</div>
+            <div class="modal-msg">
+                <div style="margin-bottom: 10px; display: flex; gap: 8px;">
+                    <input type="text" id="stream-url" value="http://localhost:8000/stream.mjpeg"
+                        style="flex: 1; padding: 6px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; font-family: monospace;">
+                    <button class="btn-sm" onclick="reloadStream()">Reload</button>
+                    <button class="btn-sm"
+                        onclick="window.open(document.getElementById('stream-url').value, '_blank')">Open New
+                        Tab</button>
+                </div>
+                <div
+                    style="background: #000; border: 1px solid #333; height: 60vh; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <img id="stream-img" src=""
+                        style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-drag: none;"
+                        draggable="false" ondragstart="return false;" alt="Stream not started">
+                </div>
+                <div style="margin-top: 8px; font-size: 0.8rem; color: #666;">
+                    Run <code>python scripts/web_stream.py</code> on your PC first.
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal" onclick="closeStreamModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Version Check
+        document.title = "Miru IDE v2.1";
+        setTimeout(() => {
+            addLog("Miru IDE v2.1 Loaded - Force Refresh if needed");
+
+            // Initialize Stream Input
+            attachStreamInput('mini-stream-img');
+            attachStreamInput('stream-img');
+
+            // Auto-start stream if panel is visible (which it is now by default)
+            if (document.getElementById('mini-stream-panel').style.display !== 'none') {
+                reloadMiniStream();
+            }
+        }, 100);
+        // --- Floating Window Logic (Draggable & Resizable) ---
+        function makeDraggable(el) {
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+            const header = el.querySelector('.console-header') || el.querySelector('.panel-header');
+
+            if (!header) return;
+
+            header.onmousedown = function (e) {
+                // Prevent drag if clicking buttons
+                if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'svg' || e.target.closest('svg')) return;
+
+                // Only allow drag if floating
+                if (!el.classList.contains('floating-window')) return;
+
+                e.preventDefault(); // Prevent text selection
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+
+                const rect = el.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+
+                // Fix size explicitly to prevent snap-back during move if it was flex
+                el.style.width = rect.width + 'px';
+                el.style.height = rect.height + 'px';
+                el.style.bottom = 'auto';
+                el.style.right = 'auto';
+
+                document.onmousemove = function (e) {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    el.style.left = (initialLeft + dx) + 'px';
+                    el.style.top = (initialTop + dy) + 'px';
+                };
+
+                document.onmouseup = function () {
+                    isDragging = false;
+                    document.onmousemove = null;
+                    document.onmouseup = null;
+                };
+            };
+        }
+
+        function toggleFloat(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+
+            if (el.classList.contains('floating-window')) {
+                // Dock it back
+                el.classList.remove('floating-window');
+                el.style.position = '';
+                el.style.top = '';
+                el.style.left = '';
+                el.style.width = '';
+
+                // Restore default heights to prevent collapse
+                if (elementId === 'mini-stream-panel') {
+                    el.style.height = '200px';
+                } else if (elementId === 'console-panel') {
+                    el.style.height = '150px';
+                } else {
+                    el.style.height = '';
+                }
+
+                el.style.zIndex = '';
+            } else {
+                // Float it
+                el.classList.add('floating-window');
+
+                // Set initial position (Center-ish)
+                const rect = el.getBoundingClientRect();
+                el.style.top = Math.max(100, rect.top) + 'px';
+                el.style.left = Math.max(100, rect.left) + 'px';
+
+                // Set initial size explicitly to allow resizing
+                el.style.width = '400px';
+                el.style.height = '300px';
+
+                // Ensure resize works by initializing drag handler if not already
+                makeDraggable(el);
+            }
+        }
+
+        // Initialize Draggables
+        setTimeout(() => {
+            makeDraggable(document.getElementById('console-panel'));
+            makeDraggable(document.getElementById('mini-stream-panel'));
+        }, 1000);
+
+        // --- Stream Logic ---
+        function openStreamModal() {
+            document.getElementById('stream-modal').classList.add('open');
+            reloadStream();
+        }
+
+        function closeStreamModal() {
+            document.getElementById('stream-modal').classList.remove('open');
+            document.getElementById('stream-img').src = "";
+        }
+
+        // --- Stream Host Configuration ---
+        // Load Auto-Config
+        window.miruHostConfig = null;
+        fetch('config/host.json')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.host) {
+                    console.log("[Miru] Loaded Host Config:", data.host);
+                    window.miruHostConfig = data.host;
+                    addLog(`[Config] Loaded PC Host: ${data.host}`);
+
+                    // Update UI to show we are linked
+                    const streamTitle = document.getElementById('stream-title');
+                    if (streamTitle) streamTitle.innerHTML += ` <span style="font-size:10px;color:#0f0;">(Linked)</span>`;
+
+                    // If stream is open, reload it
+                    if (document.getElementById('mini-stream-panel').style.display !== 'none') {
+                        reloadMiniStream();
+                    }
+                }
+            })
+            .catch(err => console.log("[Miru] No Host Config found (using default/manual)"));
+
+        function configureStreamHost() {
+            // Calculate Auto-Detected Host
+            let autoHost = "";
+            const hostname = window.location.hostname;
+            if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+                autoHost = window.location.protocol + '//' + hostname + ':8000';
+            }
+
+            const currentHost = localStorage.getItem('miru_stream_host') || window.miruHostConfig || autoHost;
+
+            let promptMsg = 'Enter Stream Server URL (e.g. http://192.168.1.50:8000)';
+            if (autoHost) {
+                promptMsg += `\n(Auto-detected: ${autoHost})`;
+            }
+            promptMsg += '\nLeave empty to use Auto/Default.';
+
+            showInputModal('Config Host', promptMsg, currentHost, (newHost) => {
+                if (newHost !== null) {
+                    // Remove trailing slash
+                    let host = newHost.trim().replace(/\/$/, '');
+                    if (host) {
+                        localStorage.setItem('miru_stream_host', host);
+                    } else {
+                        localStorage.removeItem('miru_stream_host');
+                    }
+                    reloadMiniStream();
+                }
+            });
+        }
+
+        function getStreamBaseUrl() {
+            // Priority 1: Manual Config (LocalStorage)
+            const manual = localStorage.getItem('miru_stream_host');
+            if (manual) return manual;
+
+            // Priority 2: Config File
+            if (window.miruHostConfig) return window.miruHostConfig;
+
+            // Priority 3: Auto-Discovery (Same Host)
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+
+            // If served from the Python Server (Port 8000), use relative paths
+            if (port === '8000') {
+                return "";
+            }
+
+            // If on mobile/remote (not localhost), assume standard port 8000 on same IP
+            if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+                return window.location.protocol + '//' + hostname + ':8000';
+            }
+
+            // Fallback for Local Development (File://, Live Server, Trae Preview)
+            // Default to localhost:8000
+            return "http://localhost:8000";
+        }
+
+        // Stream Input Handling (Tap & Swipe)
+        let streamInputState = {
+            startX: 0,
+            startY: 0,
+            startTime: 0,
+            isDown: false
+        };
+
+        function attachStreamInput(imgId) {
+            const img = document.getElementById(imgId);
+            if (!img) return;
+
+            img.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                img.setPointerCapture(e.pointerId);
+                const rect = img.getBoundingClientRect();
+                streamInputState.startX = (e.clientX - rect.left) / rect.width;
+                streamInputState.startY = (e.clientY - rect.top) / rect.height;
+                streamInputState.startTime = new Date().getTime();
+                streamInputState.isDown = true;
+                // addLog(`[Input] Down: ${streamInputState.startX.toFixed(2)}, ${streamInputState.startY.toFixed(2)}`);
+            });
+
+            img.addEventListener('pointerup', (e) => {
+                if (!streamInputState.isDown) return;
+                e.preventDefault();
+                img.releasePointerCapture(e.pointerId);
+                streamInputState.isDown = false;
+
+                const rect = img.getBoundingClientRect();
+                const endX = (e.clientX - rect.left) / rect.width;
+                const endY = (e.clientY - rect.top) / rect.height;
+                let duration = new Date().getTime() - streamInputState.startTime;
+
+                // Clamp duration for better ADB response
+                // ADB swipe needs at least some duration to be registered as swipe not tap
+                if (duration < 100) duration = 100;
+
+                const dist = Math.sqrt(Math.pow(endX - streamInputState.startX, 2) + Math.pow(endY - streamInputState.startY, 2));
+
+                // Threshold for Swipe vs Tap (2% of screen)
+                if (dist > 0.02) {
+                    // Force vertical swipe if angle is steep (helper for unlock screen)
+                    const dy = Math.abs(endY - streamInputState.startY);
+                    const dx = Math.abs(endX - streamInputState.startX);
+
+                    let finalStartX = streamInputState.startX;
+                    let finalStartY = streamInputState.startY;
+                    let finalEndX = endX;
+                    let finalEndY = endY;
+
+                    // If primarily vertical swipe (like unlock), exaggerate the movement
+                    if (dy > dx && dy > 0.1) {
+                        // Unlock swipe usually needs to be long and start from bottom
+                        addLog(`[Input] Detected Vertical Swipe (Unlock Mode)`);
+                        duration = 300;
+
+                        // Force Full Screen Swipe for Unlock
+                        // Many phones require swipe from very bottom to very top
+                        if (streamInputState.startY > 0.5 && endY < 0.5) {
+                            // Swiping Up
+                            finalStartX = streamInputState.startX; // Keep X
+                            finalStartY = 0.95; // Force start from bottom edge
+                            finalEndX = endX;   // Keep target X
+                            finalEndY = 0.10;   // Force end at top edge
+                            addLog(`[Input] Auto-Extended Swipe for Unlock (95% -> 10%)`);
+                        }
+                    }
+
+                    addLog(`[Input] Swipe: ${duration}ms (${dist.toFixed(2)})`);
+                    // Visual Line
+                    showSwipeLine(rect, finalStartX, finalStartY, finalEndX, finalEndY);
+                    handleStreamSwipe(finalStartX, finalStartY, finalEndX, finalEndY, duration);
+                } else {
+                    // addLog(`[Input] Tap`);
+                    handleStreamTap(endX, endY, e.clientX, e.clientY);
+                }
+            });
+        }
+
+        function showSwipeLine(rect, x1, y1, x2, y2) {
+            const line = document.createElement('div');
+            const length = Math.sqrt(Math.pow((x2 - x1) * rect.width, 2) + Math.pow((y2 - y1) * rect.height, 2));
+            const angle = Math.atan2((y2 - y1) * rect.height, (x2 - x1) * rect.width) * 180 / Math.PI;
+
+            line.style.position = 'fixed';
+            line.style.left = (rect.left + x1 * rect.width) + 'px';
+            line.style.top = (rect.top + y1 * rect.height) + 'px';
+            line.style.width = length + 'px';
+            line.style.height = '2px';
+            line.style.background = 'cyan';
+            line.style.transform = `rotate(${angle}deg)`;
+            line.style.transformOrigin = '0 0';
+            line.style.zIndex = '9999';
+            line.style.pointerEvents = 'none';
+            document.body.appendChild(line);
+
+            setTimeout(() => line.remove(), 500);
+        }
+
+        function handleStreamTap(x, y, clientX, clientY) {
+            // Visual feedback (Red dot ripple)
+            const ripple = document.createElement('div');
+            ripple.style.position = 'fixed';
+            ripple.style.left = (clientX - 5) + 'px';
+            ripple.style.top = (clientY - 5) + 'px';
+            ripple.style.width = '10px';
+            ripple.style.height = '10px';
+            ripple.style.background = 'rgba(255, 0, 0, 0.7)';
+            ripple.style.borderRadius = '50%';
+            ripple.style.pointerEvents = 'none';
+            ripple.style.zIndex = '9999';
+            ripple.style.transition = 'transform 0.3s, opacity 0.3s';
+            document.body.appendChild(ripple);
+
+            setTimeout(() => {
+                ripple.style.transform = 'scale(2)';
+                ripple.style.opacity = '0';
+            }, 10);
+            setTimeout(() => ripple.remove(), 300);
+
+            // Send to backend
+            const base = getStreamBaseUrl();
+            const isMobile = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+            if (isMobile) {
+                if (!base || base.includes('localhost') || base.includes('127.0.0.1')) {
+                    addLog("[Error] Invalid Stream Host for Mobile!");
+                    // Visual Hint
+                    const hint = document.createElement('div');
+                    hint.textContent = "⚠️ Set PC IP!";
+                    hint.style.position = 'fixed';
+                    hint.style.left = (clientX + 10) + 'px';
+                    hint.style.top = clientY + 'px';
+                    hint.style.background = '#ff4444';
+                    hint.style.color = 'white';
+                    hint.style.padding = '4px 8px';
+                    hint.style.borderRadius = '4px';
+                    hint.style.fontSize = '12px';
+                    hint.style.pointerEvents = 'none';
+                    hint.style.zIndex = 10000;
+                    document.body.appendChild(hint);
+                    setTimeout(() => hint.remove(), 2000);
+                    return;
+                }
+            }
+
+            const apiUrl = base ? `${base}/api/input/tap?x=${x}&y=${y}` : `/api/input/tap?x=${x}&y=${y}`;
+            fetch(apiUrl).catch(err => console.error("Tap failed:", err));
+        }
+
+        function handleStreamSwipe(x1, y1, x2, y2, duration) {
+            console.log(`Swipe: ${x1.toFixed(2)},${y1.toFixed(2)} -> ${x2.toFixed(2)},${y2.toFixed(2)} (${duration}ms)`);
+            const base = getStreamBaseUrl();
+            const apiUrl = base
+                ? `${base}/api/input/swipe?x1=${x1}&y1=${y1}&x2=${x2}&y2=${y2}&duration=${duration}`
+                : `/api/input/swipe?x1=${x1}&y1=${y1}&x2=${x2}&y2=${y2}&duration=${duration}`;
+
+            fetch(apiUrl).catch(err => console.error("Swipe failed:", err));
+        }
+
+
+        function sendKey(keycode) {
+            console.log("Sending Key:", keycode);
+            const base = getStreamBaseUrl();
+
+            // Same validation as Tap
+            const isMobile = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+            if (isMobile) {
+                if (!base || base.includes('localhost') || base.includes('127.0.0.1')) {
+                    addLog("[Error] Invalid Host for Key Command!");
+                    // alert("Please Configure Stream Host first (Gear Icon)!"); // Optional
+                    return;
+                }
+            }
+
+            const apiUrl = base ? `${base}/api/input/key?keycode=${keycode}` : `/api/input/key?keycode=${keycode}`;
+            fetch(apiUrl).catch(err => console.error("Key failed:", err));
+        }
+
+        function captureScreen() {
+            console.log("Capturing Screen...");
+            const base = getStreamBaseUrl();
+            const apiUrl = base ? `${base}/api/capture` : `/api/capture`;
+
+            // Validate Mobile Host
+            const isMobile = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+            if (isMobile) {
+                if (!base || base.includes('localhost') || base.includes('127.0.0.1')) {
+                    addLog("[Error] Invalid Host for Capture!");
+                    return;
+                }
+            }
+
+            fetch(apiUrl)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        addLog(`[Capture] Saved: ${data.url}`);
+                        // Open in new tab
+                        const imgUrl = base ? `${base}/${data.url}` : data.url;
+                        window.open(imgUrl, '_blank');
+                    } else {
+                        addLog("[Error] Capture failed");
+                    }
+                })
+                .catch(err => {
+                    console.error("Capture failed:", err);
+                    addLog(`[Error] Capture failed: ${err}`);
+                });
+        }
+
+        // Stay Awake Logic
+        let isStayAwake = false;
+        function toggleStayAwake() {
+            isStayAwake = !isStayAwake;
+            const btn = document.getElementById('btn-stay-awake');
+
+            // Visual Toggle
+            if (isStayAwake) {
+                btn.style.color = '#ffcc00'; // Yellow
+                btn.style.opacity = '1';
+                addLog("[Power] Sun Mode ON (Screen Always On)");
+            } else {
+                btn.style.color = '';
+                btn.style.opacity = '0.5';
+                addLog("[Power] Sun Mode OFF (Normal)");
+            }
+
+            // Send Command
+            const base = getStreamBaseUrl();
+            const apiUrl = base ? `${base}/api/device/stayon?mode=${isStayAwake}` : `/api/device/stayon?mode=${isStayAwake}`;
+
+            // Validate Mobile Host
+            const isMobile = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+            if (isMobile) {
+                if (!base || base.includes('localhost') || base.includes('127.0.0.1')) {
+                    addLog("[Error] Invalid Host for Power Command!");
+                    return;
+                }
+            }
+
+            fetch(apiUrl).catch(err => {
+                console.error("Power command failed:", err);
+                addLog(`[Error] Power command failed: ${err}`);
+                // Revert UI if failed
+                isStayAwake = !isStayAwake;
+                if (isStayAwake) {
+                    btn.style.color = '#ffcc00'; btn.style.opacity = '1';
+                } else {
+                    btn.style.color = ''; btn.style.opacity = '0.5';
+                }
+            });
+        }
+
+        function reloadStream() {
+            const base = getStreamBaseUrl();
+            const url = base ? `${base}/stream.mjpeg` : '/stream.mjpeg';
+            const img = document.getElementById('stream-img');
+            if (img) img.src = url;
+            const input = document.getElementById('stream-url');
+            if (input) input.value = url;
+
+            // Reload Mini Stream too
+            reloadMiniStream();
+
+            // Update Device Info
+            updateDeviceInfo();
+        }
+
+        function updateDeviceInfo() {
+            const base = getStreamBaseUrl();
+            const isMobile = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+            if (isMobile && (!base || base.includes('localhost'))) {
+                const title = document.getElementById('stream-title');
+                if (title) title.textContent = "⚠️ Setup Host";
+                return;
+            }
+
+            const apiUrl = base ? `${base}/api/device/info` : `/api/device/info`;
+
+            fetch(apiUrl)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.model) {
+                        const title = document.getElementById('stream-title');
+                        if (title) {
+                            if (data.width && data.height) {
+                                title.textContent = `${data.model} (${data.width}x${data.height})`;
+                            } else {
+                                title.textContent = data.model;
+                            }
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.log("Device info failed:", err);
+                    const title = document.getElementById('stream-title');
+                    if (title) title.textContent = "Offline";
+                });
+        }
+
+        function openScrcpy() {
+            const base = getStreamBaseUrl();
+            const apiUrl = base ? `${base}/api/launch/scrcpy` : `/api/launch/scrcpy`;
+            addLog(`[Stream] Launching Scrcpy at ${apiUrl}...`);
+
+            // Add mode: 'no-cors' for fire-and-forget or try standard fetch
+            fetch(apiUrl)
+                .then(res => res.text())
+                .then(msg => {
+                    addLog(msg === "OK" ? "[Stream] Scrcpy Launched!" : "[Error] " + msg);
+                })
+                .catch(err => {
+                    addLog("[Error] Failed to launch Scrcpy: " + err);
+
+                    // Fallback: If on mobile, maybe the base URL is wrong or mixed content (HTTPS vs HTTP)
+                    if (window.location.protocol === 'https:' && apiUrl.startsWith('http:')) {
+                        addLog("[Error] Mixed Content Blocked! Browser won't let HTTPS site call HTTP API.");
+                    } else if (window.location.protocol === 'http:' && apiUrl.startsWith('http:')) {
+                        // HTTP to HTTP is fine, no error needed
+                    }
+
+                    // Suggest Fix
+                    const isMobile = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+                    if (isMobile && !base) {
+                        addLog("[Hint] You are on mobile. Did you set PC IP in Config?");
+                    }
+                });
+        }
+
+        function goWireless() {
+            const base = getStreamBaseUrl();
+            const apiUrl = base ? `${base}/api/device/wireless` : `/api/device/wireless`;
+            addLog(`[Wireless] Switching to Wireless Mode... (API: ${apiUrl})`);
+
+            if (window.location.protocol === 'https:' && apiUrl.startsWith('http:')) {
+                addLog("[Error] Mixed Content: Cannot call HTTP API from HTTPS page.");
+                return;
+            }
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        addLog(`[Wireless] Success! Connected to ${data.ip}`);
+                        addLog("[Wireless] You can now unplug the USB cable.");
+                    } else {
+                        addLog("[Wireless] Failed.");
+                    }
+                })
+                .catch(err => {
+                    addLog("[Wireless] Error: " + err);
+                });
+        }
+
+        let isTurboMode = false;
+        function toggleTurboMode() {
+            const btn = document.getElementById('btn-turbo-mode');
+            const base = getStreamBaseUrl();
+            const apiUrl = base ? `${base}/api/device/resolution` : `/api/device/resolution`;
+
+            // Toggle state
+            const newMode = !isTurboMode;
+
+            // Define action
+            const payload = newMode
+                ? { action: 'set', width: 360, height: 800 } // Turbo: 360p
+                : { action: 'reset' }; // Normal: Reset
+
+            addLog(newMode ? "[Stream] Switching to Turbo Mode (360p)..." : "[Stream] Resetting Resolution...");
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        isTurboMode = newMode;
+                        if (isTurboMode) {
+                            btn.style.color = '#ffcc00'; // Active Yellow
+                            addLog(`[Stream] Turbo Active: ${data.width}x${data.height}`);
+                        } else {
+                            btn.style.color = '';
+                            addLog(`[Stream] Normal Mode: ${data.width}x${data.height}`);
+                        }
+                        // Refresh Title
+                        updateDeviceInfo();
+                    } else {
+                        addLog("[Error] Failed to change resolution");
+                    }
+                })
+                .catch(err => {
+                    addLog("[Error] Turbo toggle failed: " + err);
+                });
+        }
+
+        // --- Mini Stream Logic ---
+        function toggleMiniStream() {
+            const panel = document.getElementById('mini-stream-panel');
+            const btn = document.getElementById('btn-mini-stream');
+            const resizer = document.getElementById('resizer-stream');
+
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+                if (resizer) resizer.style.display = 'block';
+                btn.style.color = 'hsl(var(--primary))';
+                reloadMiniStream();
+            } else {
+                panel.style.display = 'none';
+                if (resizer) resizer.style.display = 'none';
+                btn.style.color = '';
+                // Stop stream to save bandwidth
+                document.getElementById('mini-stream-img').src = "";
+            }
+        }
+
+        // --- Stream Logic ---
+        let streamInterval = null;
+        let isH264Mode = true; // Default to Scrcpy/H.264
+        let jmuxer = null;
+        let h264Controller = null;
+
+        function getStreamBaseUrl() {
+            // If running on port 8000, empty string (relative).
+            // If running on file:// or other port, might need config.
+            // For now assume relative is fine if served from same host.
+            return "";
+        }
+
+        function toggleStreamMode() {
+            isH264Mode = !isH264Mode;
+            const btn = document.getElementById('btn-stream-engine');
+            if (btn) {
+                if (isH264Mode) {
+                    btn.style.color = '#ffcc00';
+                    btn.innerHTML = '<span style="font-size: 8px; font-weight: bold;">HD</span>';
+                    addLog("[Stream] Switched to H.264 (Scrcpy)");
+                } else {
+                    btn.style.color = '';
+                    btn.innerHTML = '<span style="font-size: 8px; font-weight: bold;">JPG</span>';
+                    addLog("[Stream] Switched to MJPEG (Legacy)");
+                }
+            }
+            reloadMiniStream();
+        }
+
+        async function startH264Stream() {
+            const video = document.getElementById('mini-stream-video');
+            const img = document.getElementById('mini-stream-img');
+            const overlay = document.getElementById('mini-stream-overlay');
+
+            // UI Toggle
+            img.style.display = 'none';
+            video.style.display = 'block';
+
+            if (overlay) {
+                overlay.textContent = "Connecting H.264...";
+                overlay.style.opacity = '1';
+            }
+
+            // Init JMuxer if needed
+            if (!jmuxer) {
+                try {
+                    jmuxer = new JMuxer({
+                        node: 'mini-stream-video',
+                        mode: 'video',
+                        flushingTime: 0,
+                        fps: 30,
+                        debug: false,
+                        onError: function (data) {
+                            console.log('Buffer error:', data);
+                        }
+                    });
+                } catch (e) {
+                    addLog("[Error] JMuxer init failed: " + e);
+                    return;
+                }
+            }
+
+            // Cleanup previous fetch
+            if (h264Controller) {
+                h264Controller.abort();
+            }
+            h264Controller = new AbortController();
+
+            try {
+                const response = await fetch('/stream.h264', {
+                    signal: h264Controller.signal
+                });
+
+                if (!response.ok) throw new Error("Stream connection failed");
+                if (!response.body) throw new Error("No response body");
+
+                if (overlay) overlay.style.opacity = '0';
+                addLog("[Stream] H.264 Connected!");
+
+                const reader = response.body.getReader();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    if (value) {
+                        jmuxer.feed({ video: value });
+                    }
+                }
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+                console.error("Stream Error", e);
+                addLog("[Stream] H.264 Error: " + e.message);
+
+                if (overlay) {
+                    overlay.textContent = "Stream Failed";
+                    overlay.style.opacity = '1';
+                }
+
+                // Auto fallback
+                isH264Mode = false;
+                reloadMiniStream();
+            }
+        }
+
+        function reloadMiniStream() {
+            const panel = document.getElementById('mini-stream-panel');
+            // Check computed style (handles CSS media queries for mobile)
+            const style = window.getComputedStyle(panel);
+            if (style.display === 'none') return;
+
+            if (isH264Mode) {
+                startH264Stream();
+                return;
+            }
+
+            // Clean up H.264 if switching to MJPEG
+            if (h264Controller) {
+                h264Controller.abort();
+                h264Controller = null;
+            }
+
+            const base = getStreamBaseUrl();
+            const url = base ? `${base}/stream.mjpeg` : '/stream.mjpeg';
+            const img = document.getElementById('mini-stream-img');
+            const video = document.getElementById('mini-stream-video');
+            const overlay = document.getElementById('mini-stream-overlay');
+
+            // UI Toggle
+            video.style.display = 'none';
+            img.style.display = 'block';
+
+            // Flicker effect / Loading state
+            img.style.opacity = '0.5';
+            if (overlay) {
+                overlay.textContent = "Connecting...";
+                overlay.style.opacity = '1';
+                overlay.style.background = 'rgba(0,0,0,0.5)';
+                overlay.style.pointerEvents = 'none'; // Passthrough
+            }
+
+            // Set src with timestamp to force reload
+            img.src = url + "?t=" + new Date().getTime();
+
+            const input = document.getElementById('stream-url');
+            if (input) input.value = url;
+
+            // Handle success
+            img.onload = function () {
+                img.style.opacity = '1';
+                if (overlay) overlay.style.opacity = '0';
+                // addLog("[Stream] Connected.");
+            };
+
+            // Handle error
+            img.onerror = function () {
+                // Only log if panel is visible
+                if (document.getElementById('mini-stream-panel').style.display !== 'none') {
+                    const isMobile = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+                    let msg = "Connection Failed";
+                    let sub = `Target: ${url}`; // Show the actual URL being attempted
+
+                    if (isMobile && !base) {
+                        msg = "⚠️ Setup Required";
+                        sub = "Tap Gear ⚙️ to set IP";
+                        addLog("[Stream] Failed. Use 'Config Host' to set PC IP.");
+                    } else {
+                        addLog(`[Stream] Failed to connect to ${url}`);
+                    }
+
+                    if (overlay) {
+                        overlay.innerHTML = `
+                            <div style="text-align:center">
+                                <div style="color:#ff5555; font-weight:bold; font-size:12px;">${msg}</div>
+                                <div style="font-size:9px; opacity:0.8; word-break:break-all;">${sub}</div>
+                                <div style="font-size:9px; margin-top:4px; color:#aaa;">Check Firewall Port 8000</div>
+                                <button onclick="reloadMiniStream()" style="margin-top:5px; padding:2px 8px; font-size:10px; cursor:pointer;">Retry</button>
+                            </div>`;
+                        overlay.style.opacity = '1';
+                        overlay.style.pointerEvents = 'auto';
+                    }
+                }
+            };
+        }
+
+
+        // --- Modal Logic ---
+        function showConfirmModal(title, msg, onConfirm, isDanger = false) {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-msg').textContent = msg;
+
+            const btn = document.getElementById('confirm-btn');
+            // Replace to clear old listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+
+            newBtn.className = isDanger ? 'btn-modal danger' : 'btn-modal primary';
+            newBtn.onclick = function () {
+                closeConfirmModal();
+                if (onConfirm) onConfirm();
+            };
+
+            document.getElementById('confirm-modal').classList.add('open');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.remove('open');
+        }
+
+        function showInputModal(title, msg, defaultValue, onConfirm) {
+            document.getElementById('input-title').textContent = title;
+            document.getElementById('input-msg').textContent = msg;
+            const input = document.getElementById('input-value');
+            input.value = defaultValue || '';
+
+            const btn = document.getElementById('input-btn');
+            // Replace to clear old listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+
+            newBtn.onclick = function () {
+                const val = input.value;
+                closeInputModal();
+                if (onConfirm) onConfirm(val);
+            };
+
+            // Enter key support
+            input.onkeydown = function (e) {
+                if (e.key === 'Enter') {
+                    newBtn.click();
+                }
+            };
+
+            document.getElementById('input-modal').classList.add('open');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function closeInputModal() {
+            document.getElementById('input-modal').classList.remove('open');
+        }
+
+        // --- MIRU CORE ---
+
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const isRootedEnv = typeof ksu !== 'undefined' || window.location.href.includes('cgi-bin');
+
+        // --- Keyboard Helper Logic ---
+        function insertText(text) {
+            if (!window.editor) return;
+            const selection = window.editor.getSelection();
+            const op = { range: selection, text: text, forceMoveMarkers: true };
+            window.editor.executeEdits("keyboard-helper", [op]);
+            window.editor.focus();
+        }
+
+        function undoEdit() {
+            if (!window.editor) return;
+            window.editor.trigger('keyboard', 'undo', null);
+            window.editor.focus();
+        }
+
+        function getSelectedTarget() {
+            var params = new URLSearchParams(window.location.search);
+            var pkg = params.get('pkg') || localStorage.getItem('miru.selectedPkg') || '';
+            var label = params.get('label') || localStorage.getItem('miru.selectedLabel') || '';
+            if (pkg) {
+                try {
+                    localStorage.setItem('miru.selectedPkg', pkg);
+                    if (label) localStorage.setItem('miru.selectedLabel', label);
+                } catch (e) { }
+            }
+            return { pkg: pkg, label: label };
+        }
+
+        var selectedTarget = getSelectedTarget();
+
+        // Update Nav Name
+        if (selectedTarget.label || selectedTarget.pkg) {
+            const brandEl = document.getElementById('brand-text');
+            if (brandEl) {
+                brandEl.textContent = selectedTarget.label || selectedTarget.pkg;
+                // Check overflow after rendering
+                setTimeout(checkBrandOverflow, 100);
+            }
+        }
+
+        function checkBrandOverflow() {
+            const container = document.getElementById('brand-container');
+            const text = document.getElementById('brand-text');
+            if (container && text) {
+                if (text.scrollWidth > container.clientWidth) {
+                    text.classList.add('marquee');
+                } else {
+                    text.classList.remove('marquee');
+                }
+            }
+        }
+
+        // Always use the base scripts folder so user can see all files
+        var workspaceRoot = '/data/adb/modules/miru_ui_module/scripts';
+
+        // Remote Bridge (Polyfill)
+        if (typeof ksu === 'undefined') {
+            window.ksu = {
+                exec: async (command) => {
+                    try {
+                        const response = await fetch('/cgi-bin/exec', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: command
+                        });
+                        const json = await response.json();
+                        const decode = (str) => {
+                            if (!str) return '';
+                            try { return decodeURIComponent(escape(window.atob(str))); } catch (e) { return window.atob(str); }
+                        };
+                        return { errno: json.errno, stdout: decode(json.stdout_b64), stderr: decode(json.stderr_b64) };
+                    } catch (e) {
+                        console.error(e);
+                        return { errno: 1, stdout: '', stderr: e.message };
+                    }
+                },
+                toast: (msg) => console.log('Toast:', msg)
+            };
+        }
+
+        // Global Copy Handler for Console Lines
+        document.addEventListener('click', function (e) {
+            if (e.target && e.target.classList.contains('console-line')) {
+                const text = e.target.textContent;
+                copyToClipboard(text, e.target);
+            }
+        });
+
+        function copyToClipboard(text, element) {
+            const showSuccess = () => {
+                // Visual feedback on element
+                if (element) {
+                    element.style.backgroundColor = 'rgba(50, 205, 50, 0.3)';
+                    setTimeout(() => element.style.backgroundColor = '', 300);
+                }
+                // Show global toast
+                const toast = document.getElementById('copy-toast');
+                if (toast) {
+                    toast.style.opacity = '1';
+                    setTimeout(() => toast.style.opacity = '0', 2000);
+                }
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(showSuccess).catch(err => {
+                    // Fallback if clipboard API fails
+                    fallbackCopy(text, element, showSuccess);
+                });
+            } else {
+                fallbackCopy(text, element, showSuccess);
+            }
+        }
+
+        function fallbackCopy(text, element, onSuccess) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful && onSuccess) onSuccess();
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function switchConsole(type) {
+            // Update Tabs
+            document.querySelectorAll('.console-tab').forEach(el => el.classList.remove('active'));
+            const tab = document.getElementById(`tab-${type}`);
+            if (tab) tab.classList.add('active');
+
+            // Update Views
+            document.querySelectorAll('.console-output').forEach(el => el.classList.remove('active'));
+            const out = document.getElementById(`console-output-${type}`);
+            if (out) out.classList.add('active');
+        }
+
+        function addLog(msg, type = 'system') {
+            const id = type === 'script' ? 'console-output-script' : 'console-output-system';
+            const consoleBody = document.getElementById(id);
+            if (!consoleBody) return;
+
+            const line = document.createElement('div');
+            line.className = 'console-line';
+            line.textContent = msg;
+
+            // Cursor pointer is handled by CSS now
+            line.title = 'Click to copy';
+
+            consoleBody.appendChild(line);
+            consoleBody.scrollTop = consoleBody.scrollHeight;
+
+            // Auto-switch to script tab if script log comes in
+            if (type === 'script') {
+                // switchConsole('script'); // Optional: auto-focus
+            }
+
+            // Update PiP buffer (Both mixed for PiP)
+            if (window.logBuffer) {
+                window.logBuffer.push((type === 'script' ? '[S] ' : '') + msg);
+                if (window.logBuffer.length > 20) window.logBuffer.shift(); // Keep last 20 lines
+            }
+        }
+
+        function clearConsole() {
+            const sys = document.getElementById('console-output-system');
+            const scr = document.getElementById('console-output-script');
+            if (sys) sys.innerHTML = '';
+            if (scr) scr.innerHTML = '';
+            if (window.logBuffer) window.logBuffer = [];
+        }
+
+        // Removed duplicate switchConsole
+
+        // --- PiP Logic (Floating Logs) ---
+        window.logBuffer = [];
+        let pipCanvas = null;
+        let pipVideo = null;
+        let pipCtx = null;
+        let pipInterval = null;
+
+        function renderPiPFrame() {
+            if (!pipCtx) return;
+
+            // Background
+            pipCtx.fillStyle = '#080808';
+            pipCtx.fillRect(0, 0, 400, 300);
+
+            // Border
+            pipCtx.strokeStyle = '#333';
+            pipCtx.lineWidth = 2;
+            pipCtx.strokeRect(0, 0, 400, 300);
+
+            // Title
+            pipCtx.font = 'bold 16px "JetBrains Mono", monospace';
+            pipCtx.fillStyle = '#ff007f'; // Primary colorish
+            pipCtx.fillText('MIRU LOGS', 10, 25);
+
+            // Status
+            pipCtx.font = '10px "JetBrains Mono", monospace';
+            pipCtx.fillStyle = '#666';
+            pipCtx.fillText(pipVideo.paused ? '[PAUSED]' : '[LIVE]', 340, 25);
+
+            // Logs
+            pipCtx.font = '12px "JetBrains Mono", monospace';
+            pipCtx.fillStyle = '#cccccc';
+
+            let y = 50;
+            const lineHeight = 16;
+
+            // Draw last ~15 lines
+            const logs = window.logBuffer || [];
+            logs.forEach(line => {
+                // Simple truncate
+                if (line.length > 50) line = line.substring(0, 50) + '...';
+                pipCtx.fillText('> ' + line, 10, y);
+                y += lineHeight;
+            });
+        }
+
+        async function togglePiP() {
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture();
+                return;
+            }
+
+            if (!pipCanvas) {
+                pipCanvas = document.createElement('canvas');
+                pipCanvas.width = 400;
+                pipCanvas.height = 300;
+                pipCtx = pipCanvas.getContext('2d');
+
+                pipVideo = document.createElement('video');
+                pipVideo.width = 400;
+                pipVideo.height = 300;
+                pipVideo.muted = true; // Auto-play requirement
+
+                // Add to DOM but hidden (Stabilizes PiP on some Androids)
+                pipVideo.style.position = 'absolute';
+                pipVideo.style.opacity = '0';
+                pipVideo.style.pointerEvents = 'none';
+                document.body.appendChild(pipVideo);
+
+                // Events
+                pipVideo.addEventListener('leavepictureinpicture', () => {
+                    if (pipInterval) clearInterval(pipInterval);
+                    pipInterval = null;
+                    addLog('Floating Log Closed.');
+                });
+
+                pipVideo.addEventListener('pause', () => {
+                    // User pressed Pause in PiP window
+                    if (pipInterval) clearInterval(pipInterval);
+                    renderPiPFrame(); // Draw one last frame with [PAUSED]
+                });
+
+                pipVideo.addEventListener('play', () => {
+                    // User pressed Play in PiP window
+                    if (pipInterval) clearInterval(pipInterval);
+                    pipInterval = setInterval(renderPiPFrame, 500);
+                });
+            }
+
+            // Start Rendering
+            if (pipInterval) clearInterval(pipInterval);
+            pipInterval = setInterval(renderPiPFrame, 500);
+
+            try {
+                if (!pipVideo.srcObject) {
+                    const stream = pipCanvas.captureStream(10); // 10 FPS
+                    pipVideo.srcObject = stream;
+                }
+                await pipVideo.play();
+                await pipVideo.requestPictureInPicture();
+            } catch (e) {
+                addLog('PiP Error: ' + e.message);
+            }
+        }
+
+        setTimeout(async () => {
+            addLog(`Environment: ${isAndroid ? 'Android' : 'PC/Desktop'}`);
+            addLog(`Mode: ${isRootedEnv ? 'Rooted (Production)' : 'Polyfill (Development)'}`);
+            if (selectedTarget.pkg) {
+                addLog(`Target: ${selectedTarget.label || 'App'} (${selectedTarget.pkg})`);
+            }
+
+            // Auto-detect Device IP (IP Host)
+            if (window.ksu && ksu.exec) {
+                try {
+                    // Try wlan0 first
+                    let res = await ksu.exec("ip -4 addr show wlan0 | grep inet | awk '{print $2}' | cut -d/ -f1");
+                    let ip = (res.stdout || '').trim();
+
+                    if (!ip) {
+                        // Fallback to route if wlan0 fails (e.g. mobile data or ethernet)
+                        res = await ksu.exec("ip route get 1.1.1.1 | grep src | sed 's/.*src //g' | cut -d' ' -f1");
+                        ip = (res.stdout || '').trim();
+                    }
+
+                    if (ip) {
+                        addLog(`Device IP: ${ip}`);
+                        const port = window.location.port || '9090';
+                        addLog(`Remote Access: http://${ip}:${port}/ide.html`);
+                        // Update window title for easy reference
+                        document.title = `Miru IDE - ${ip}`;
+                    }
+                } catch (e) {
+                    // Silent fail or log if debug needed
+                }
+            }
+        }, 500);
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+
+            // Default File Icon (Gray)
+            let icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+
+            if (filename.endsWith('/')) { // Directory
+                return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dcb67a" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+            }
+
+            switch (ext) {
+                case 'js':
+                    // JS Icon (Yellow)
+                    icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f1e05a" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+                    break;
+                case 'json':
+                    // JSON Icon (Orange)
+                    icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e34c26" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M10 12h.01"></path><path d="M14 12h.01"></path><path d="M12 16h.01"></path></svg>`;
+                    break;
+                case 'sh':
+                    // Shell Icon (Green)
+                    icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`;
+                    break;
+                case 'xml':
+                case 'html':
+                    // Code Icon (Blue)
+                    icon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#56b6c2" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>`;
+                    break;
+            }
+            return icon;
+        }
+
+        async function createNewFolder() {
+            showInputModal('New Package', 'Enter package name (e.g. com.example.app):', '', async (pkgName) => {
+                if (!pkgName) return;
+
+                // Basic validation
+                if (!/^[a-z0-9_.]+$/.test(pkgName)) {
+                    addLog('Error: Invalid package name. Use lowercase letters, numbers, dots, and underscores.');
+                    return;
+                }
+
+                const dirPath = workspaceRoot + '/pkg/' + pkgName;
+                addLog('Creating package: ' + pkgName + '...');
+
+                try {
+                    // 1. Create Directory
+                    await ksu.exec(`mkdir -p "${dirPath}"`);
+
+                    // 2. Create bypass.js
+                    const bypassPath = `${dirPath}/bypass.js`;
+                    const bypassContent = `// Miru Bypass Script for ${pkgName}\n` + BYPASS_TEMPLATE;
+
+                    // Write file using base64 to avoid escaping issues
+                    // utf8 -> base64
+                    const b64 = btoa(unescape(encodeURIComponent(bypassContent)));
+                    const cmd = `echo "${b64}" | base64 -d > "${bypassPath}"`;
+
+                    const res = await ksu.exec(cmd);
+                    if (res.errno === 0) {
+                        addLog('Package created successfully.');
+                        // 3. Refresh and Open
+                        await listWorkspaceFiles();
+                        // Open the new file
+                        openFile(bypassPath);
+                    } else {
+                        addLog('Error creating bypass.js: ' + res.stderr);
+                    }
+
+                } catch (e) {
+                    addLog('Exception: ' + e.message);
+                }
+            });
+        }
+
+        async function listWorkspaceFiles(autoOpenFirst = false) {
+            const container = document.getElementById('file-list');
+            if (!workspaceRoot || !window.ksu || !ksu.exec) {
+                if (container && (!window.ksu || !ksu.exec)) {
+                    container.innerHTML = '<div style="padding:1rem;color:#e74c3c;text-align:center;font-size:0.8rem;">Root bridge missing.<br>Refresh to retry.</div>';
+                }
+                return;
+            }
+
+            if (container) container.innerHTML = '<div style="padding:1rem;color:#666;text-align:center;">Loading...</div>';
+
+            // Determine search root and display logic
+            let searchRoot = workspaceRoot;
+            let displayPrefix = '';
+
+            // If a package is selected, focus on its directory
+            if (selectedTarget && selectedTarget.pkg) {
+                try {
+                    const pkgName = selectedTarget.pkg;
+                    let pkgPath = '';
+
+                    // 1. Strict Check: Standard structure (pkg/<name>)
+                    // Avoid full workspace search which confuses users
+                    const standardPath = `${workspaceRoot}/pkg/${pkgName}`;
+                    const checkStd = await ksu.exec(`if [ -d "${standardPath}" ]; then echo "yes"; else echo "no"; fi`);
+
+                    if ((checkStd.stdout || '').trim() === 'yes') {
+                        pkgPath = standardPath;
+                    } else {
+                        // 2. Fallback: Search ONLY if not found in standard location
+                        // But limit depth/scope to avoid picking up backups/trash
+                        const findDir = await ksu.exec(`find "${workspaceRoot}" -maxdepth 3 -type d -name "${pkgName}" -print -quit`);
+                        pkgPath = (findDir.stdout || '').trim();
+                    }
+
+                    if (pkgPath) {
+                        searchRoot = pkgPath;
+                        displayPrefix = pkgName;
+
+                        // [Miru Logic] Ensure bypass.js exists even if folder was already there
+                        // This handles cases where folder exists but is empty (previous creation failed)
+                        const bypassFile = `${searchRoot}/bypass.js`;
+                        const checkBypass = await ksu.exec(`if [ -f "${bypassFile}" ]; then echo "yes"; else echo "no"; fi`);
+
+                        if ((checkBypass.stdout || '').trim() !== 'yes') {
+                            addLog(`[Auto] Missing bypass.js in existing workspace. Creating...`);
+                            const defaultContent = `// Miru Bypass Script for ${pkgName}\n` + BYPASS_TEMPLATE;
+                            try {
+                                const b64 = btoa(unescape(encodeURIComponent(defaultContent)));
+                                await ksu.exec(`echo "${b64}" | base64 -d > "${bypassFile}"`);
+                                addLog(`[Auto] Created default file: bypass.js`);
+                            } catch (e) {
+                                console.error("Auto-create bypass.js failed", e);
+                                addLog(`[Error] Failed to create bypass.js: ${e.message}`);
+                            }
+                        }
+                    } else {
+                        // Auto-create mode (Miru Style)
+                        // If not found, create it immediately instead of complaining
+                        const createPath = `${workspaceRoot}/pkg/${pkgName}`;
+                        try {
+                            await ksu.exec(`mkdir -p "${createPath}"`);
+                            addLog(`[Auto] Created workspace: pkg/${pkgName}`);
+
+                            // Auto-create bypass.js
+                            const bypassFile = `${createPath}/bypass.js`;
+                            const defaultContent = `// Miru Bypass Script for ${pkgName}\n` + BYPASS_TEMPLATE;
+
+                            // Write file using base64 to avoid escaping issues
+
+                            try {
+                                const b64 = btoa(unescape(encodeURIComponent(defaultContent)));
+                                await ksu.exec(`echo "${b64}" | base64 -d > "${bypassFile}"`);
+                                addLog(`[Auto] Created default file: bypass.js`);
+                            } catch (e) {
+                                console.error("Auto-create bypass.js failed", e);
+                            }
+
+                            // Set path and continue to list files (it will be empty but that's fine)
+                            searchRoot = createPath;
+                            displayPrefix = pkgName;
+
+                            // Queue auto-open
+                            setTimeout(() => openFile(bypassFile), 500);
+
+                        } catch (mkErr) {
+                            if (container) container.innerHTML = `<div style="padding:1rem;color:red;">Failed to create workspace: ${mkErr.message}</div>`;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to locate package dir:', e);
+                    // On error, better to show error than root
+                    if (container) container.innerHTML = `<div style="padding:1rem;color:red;">Error locating package: ${e.message}</div>`;
+                    return;
+                }
+            }
+
+            try {
+                // Ensure directory exists (basic check)
+                await ksu.exec(`mkdir -p "${searchRoot}"`);
+
+                // Initialize allFiles to avoid ReferenceError
+                let allFiles = [];
+
+                // 1. List All Files
+                const res = await ksu.exec(`find "${searchRoot}" -maxdepth 5 -not -path '*/.*'`);
+
+                if (res.errno === 0) {
+                    let rawLines = (res.stdout || '').split('\n').map(x => x.trim()).filter(x => x.length > 0);
+
+                    // Filter and format
+                    allFiles = rawLines.map(path => {
+                        // Skip the search root folder itself if listed
+                        if (path === searchRoot) return null;
+
+                        // Calculate relative path
+                        let relPath = path.replace(searchRoot, '');
+                        if (relPath.startsWith('/')) relPath = relPath.substring(1);
+
+                        // If we are in package mode, prepend the package name to maintain folder structure in view
+                        if (displayPrefix) {
+                            relPath = displayPrefix + '/' + relPath;
+                        }
+
+                        // Heuristic: if path is exactly a subdirectory of root, treat as dir
+                        const isDir = rawLines.some(p => p.startsWith(path + '/') && p !== path);
+
+                        return {
+                            name: path.split('/').pop(), // Just filename
+                            relPath: relPath, // Full relative path (adjusted)
+                            path: path,
+                            isDir: isDir
+                        };
+                    }).filter(x => x !== null);
+                } else {
+                    addLog(`Error listing files: ${res.stderr}`);
+                }
+
+                // Render
+                renderFileTree(allFiles, searchRoot);
+
+                // Auto open first file if requested
+                if (autoOpenFirst && allFiles.length > 0) {
+                    const firstFile = allFiles.find(f => !f.isDir);
+                    if (firstFile) openFile(firstFile.path);
+                }
+
+            } catch (e) {
+                console.error(e);
+                if (container) container.innerHTML = `<div style="padding:1rem;color:red;">Error: ${e.message}</div>`;
+            }
+        }
+
+        function renderFileTree(files, currentRoot) {
+            const container = document.getElementById('file-list');
+            if (!container) return;
+
+            if (files.length === 0) {
+                // Try to create the directory again explicitly before showing error
+                // In case it was just created but empty, we still show "No files" but the dir exists.
+                // But if it was missing, we want to ensure it is created.
+                // We already did mkdir -p searchRoot above, so if it is empty here, it really is just empty.
+
+                const displayPath = currentRoot || "Unknown Path";
+
+                container.innerHTML = `<div style="padding:1rem;color:#666;text-align:center;">
+                    No files found<br>
+                    <span style="font-size:0.7em">Path: ${displayPath}</span><br>
+                    <button class="btn-sm" style="margin:10px auto;background:#333;" onclick="listWorkspaceFiles()">Refresh</button>
+                </div>`;
+                return;
+            }
+
+            // 1. Build Tree Structure
+            const tree = { name: 'root', children: {}, isRoot: true };
+
+            files.forEach(file => {
+                const parts = file.relPath.split('/');
+                let current = tree;
+
+                parts.forEach((part, index) => {
+                    const isLast = index === parts.length - 1;
+
+                    if (!current.children[part]) {
+                        current.children[part] = {
+                            name: part,
+                            path: isLast ? file.path : null, // Path might be filled later for dirs
+                            relPath: parts.slice(0, index + 1).join('/'),
+                            children: {},
+                            isFile: false, // Default to dir
+                            isDir: true
+                        };
+                    }
+
+                    if (isLast) {
+                        current.children[part].isFile = !file.isDir;
+                        current.children[part].isDir = file.isDir;
+                        current.children[part].path = file.path;
+                    }
+
+                    current = current.children[part];
+                });
+            });
+
+            // 2. Recursive Render
+            function renderNode(node) {
+                // Convert children object to array and sort
+                const children = Object.values(node.children).sort((a, b) => {
+                    if (a.isDir && !b.isDir) return -1;
+                    if (!a.isDir && b.isDir) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+
+                if (children.length === 0) return '';
+
+                let html = '';
+                children.forEach(child => {
+                    const hasChildren = Object.keys(child.children).length > 0;
+                    // If heuristic says it's a file but it has children, treat as dir
+                    if (hasChildren) child.isDir = true;
+
+                    const icon = getFileIcon(child.name + (child.isDir ? '/' : ''));
+                    const arrow = child.isDir
+                        ? `<div class="arrow-icon" onclick="toggleDir(event, this)">
+                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                               <polyline points="9 18 15 12 9 6"></polyline>
+                             </svg>
+                           </div>`
+                        : `<div class="arrow-placeholder"></div>`;
+
+                    // Generate HTML for this item
+                    // Added Draggable attributes
+                    html += `
+                        <div class="tree-node-wrapper">
+                            <div class="tree-item" 
+                                 draggable="true"
+                                 ondragstart="handleDragStart(event, '${child.path}', '${child.isDir}')"
+                                 ondragover="handleDragOver(event, ${child.isDir})"
+                                 ondrop="handleDrop(event, '${child.path}', ${child.isDir})"
+                                 ondragleave="handleDragLeave(event)"
+                                 onclick="${child.isDir ? 'toggleDir(event, this.querySelector(\'.arrow-icon\'))' : `openFile('${child.path}')`}" 
+                                 data-path="${child.path || ''}">
+                                ${arrow}
+                                ${icon}
+                                <span style="white-space: nowrap;">${child.name}</span>
+                                ${!child.isDir ? getFileActions(child.name, child.path) : ''}
+                            </div>
+                            ${child.isDir ? `<div class="tree-children">${renderNode(child)}</div>` : ''}
+                        </div>
+                    `;
+                });
+                return html;
+            }
+
+            container.innerHTML = renderNode(tree);
+        }
+
+        // --- Drag and Drop Logic ---
+        let draggedItem = null;
+
+        function handleDragStart(e, path, isDir) {
+            draggedItem = { path, isDir: isDir === 'true' };
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.style.opacity = '0.5';
+        }
+
+        function handleDragOver(e, isTargetDir) {
+            e.preventDefault(); // Necessary to allow dropping
+            if (isTargetDir) {
+                e.currentTarget.style.background = '#3e3e42'; // Highlight drop target
+                e.dataTransfer.dropEffect = 'move';
+            } else {
+                e.dataTransfer.dropEffect = 'none';
+            }
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.style.background = ''; // Reset style
+        }
+
+        async function handleDrop(e, targetPath, isTargetDir) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.style.background = '';
+            e.target.style.opacity = '1'; // Reset dragged item opacity (though target might be different, good practice to reset generally if possible, but here we just reset target style)
+
+            // Find the dragged element to reset its opacity
+            const draggables = document.querySelectorAll('[draggable="true"]');
+            draggables.forEach(el => el.style.opacity = '1');
+
+            if (!draggedItem || !isTargetDir) return;
+            if (draggedItem.path === targetPath) return; // Drop on self
+
+            const fileName = draggedItem.path.split('/').pop();
+            const newPath = targetPath.endsWith('/') ? targetPath + fileName : targetPath + '/' + fileName;
+
+            if (draggedItem.path === newPath) return;
+
+            if (confirm(`Move ${fileName} to ${targetPath.split('/').pop()}?`)) {
+                addLog(`Moving ${fileName}...`);
+                try {
+                    const res = await ksu.exec(`mv "${draggedItem.path}" "${newPath}"`);
+                    if (res.errno === 0) {
+                        addLog('Moved successfully.');
+                        await listWorkspaceFiles(); // Refresh
+                    } else {
+                        addLog('Move failed: ' + res.stderr);
+                    }
+                } catch (err) {
+                    addLog('Move error: ' + err.message);
+                }
+            }
+            draggedItem = null;
+        }
+
+        function toggleDir(e, arrowEl) {
+            if (e) e.stopPropagation();
+            if (!arrowEl) return;
+
+            const wrapper = arrowEl.closest('.tree-node-wrapper');
+            const childrenContainer = wrapper.querySelector('.tree-children');
+
+            if (childrenContainer) {
+                const isOpen = childrenContainer.classList.contains('open');
+                if (isOpen) {
+                    childrenContainer.classList.remove('open');
+                    arrowEl.classList.remove('open');
+                } else {
+                    childrenContainer.classList.add('open');
+                    arrowEl.classList.add('open');
+                }
+            }
+        }
+
+        function getFileActions(name, path) {
+            // Helper to generate action buttons for files
+            // Using inline onclicks carefully
+            return `
+                <div style="margin-left: auto; display: flex; gap: 6px;">
+                    <span class="file-action-btn" title="Rename" onclick="event.stopPropagation(); renameFile('${name}', '${path}')" style="color:#aaa; cursor:pointer;">✎</span>
+                    <span class="file-delete-btn" title="Delete" onclick="event.stopPropagation(); deleteFile('${name}', '${path}')" style="color:#e74c3c; cursor:pointer;">&times;</span>
+                </div>
+            `;
+        }
+
+
+
+        async function openFile(path) {
+            if (!window.ksu || !ksu.exec || !window.editor) return;
+            try {
+                const res = await ksu.exec('cat ' + path);
+                if (res.errno !== 0) {
+                    addLog('open error: ' + (res.stderr || res.errno));
+                    return;
+                }
+                window.currentFilePath = path;
+                window.editor.setValue(res.stdout || '');
+
+                // Detect Language
+                const ext = path.split('.').pop().toLowerCase();
+                let lang = 'javascript'; // Default
+                if (ext === 'json') lang = 'json';
+                else if (ext === 'ts') lang = 'typescript';
+                else if (ext === 'html') lang = 'html';
+                else if (ext === 'css') lang = 'css';
+                else if (ext === 'sh') lang = 'shell';
+                else if (ext === 'xml') lang = 'xml';
+                else if (ext === 'py') lang = 'python';
+
+                monaco.editor.setModelLanguage(window.editor.getModel(), lang);
+
+                // Update Tab Name
+                const filename = path.split('/').pop();
+                const tab = document.getElementById('active-file-tab');
+                if (tab) {
+                    tab.textContent = filename;
+                    if (tab.parentElement) tab.parentElement.title = path; // Miru: Show full path on hover
+                }
+
+                // Highlight in Sidebar
+                const items = document.querySelectorAll('.file-item');
+                items.forEach(el => {
+                    if (el.dataset.path === path) {
+                        el.classList.add('active');
+                        el.style.background = ''; // Clear inline style to let CSS take over
+                    } else {
+                        el.classList.remove('active');
+                        el.style.background = 'transparent';
+                    }
+                });
+
+                // Mobile: Auto-close drawer
+                if (window.innerWidth <= 600) {
+                    const explorer = document.getElementById('explorer-panel');
+                    if (explorer && explorer.classList.contains('open')) {
+                        toggleExplorer();
+                    }
+                }
+
+            } catch (e) {
+                addLog('open error: ' + e.message);
+            }
+        }
+
+        async function saveCurrentFile() {
+            if (!window.currentFilePath || !window.editor) return;
+
+            const content = window.editor.getValue();
+            addLog('Saving ' + window.currentFilePath.split('/').pop() + '...');
+
+            // Visual feedback
+            const saveBtn = document.querySelector('button[title*="Save"]');
+            if (saveBtn) saveBtn.style.color = '#f1c40f'; // Yellow
+
+            try {
+                // 1. Try PC Sync Save (via /api/save on web_stream.py)
+                // This ensures files are saved to BOTH PC (Repo) and Device (Runtime)
+                const syncResp = await fetch('/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: window.currentFilePath,
+                        content: content
+                    })
+                });
+
+                if (syncResp.ok) {
+                    addLog('Saved to PC & Device (Synced).');
+                    if (saveBtn) {
+                        saveBtn.style.color = '#2ecc71'; // Green
+                        setTimeout(() => saveBtn.style.color = '', 1000);
+                    }
+                    return; // Done
+                }
+            } catch (e) {
+                // Ignore network errors, proceed to device-only save
+            }
+
+            if (!window.ksu) {
+                addLog('Error: No execution environment (ksu missing).');
+                return;
+            }
+
+            try {
+                // 2. Fallback: Device-Only Save (via ADB Shell / SU)
+                // Base64 encode to avoid special char issues
+                // utf8 to base64
+                const b64 = btoa(unescape(encodeURIComponent(content)));
+                const cmd = `echo "${b64}" | base64 -d > "${window.currentFilePath}"`;
+
+                const res = await ksu.exec(cmd);
+                if (res.errno !== 0) {
+                    addLog('Save failed: ' + (res.stderr || res.errno));
+                    if (saveBtn) saveBtn.style.color = '#e74c3c'; // Red
+                } else {
+                    addLog('Saved successfully.');
+                    if (saveBtn) {
+                        saveBtn.style.color = '#2ecc71'; // Green
+                        setTimeout(() => {
+                            saveBtn.style.color = ''; // Reset
+                        }, 1000);
+                    }
+                }
+            } catch (e) {
+                addLog('Save exception: ' + e.message);
+                if (saveBtn) saveBtn.style.color = '#e74c3c'; // Red
+            }
+        }
+
+        // --- UI Helpers ---
+        // (Universal Input Modal removed to avoid duplicate with static #input-modal)
+
+        const BYPASS_TEMPLATE = `"use strict";
+
+const CONFIG = {
+  vkey: {
+    namePatterns: ["vkey", "checks", "guard", "kap"],
+  },
+};
+
+const miruV = {
+  indent: 0,
+  ts: function () {
+    return new Date().toISOString();
+  },
+  _rawLog: function (msg) {
+    console.log("[" + miruV.ts() + "] " + msg);
+    try {
+      var Log = Java.use("android.util.Log");
+      Log.d("Miru", msg);
+    } catch (e) {}
+  },
+  log: function (m) {
+    var prefix = "";
+    for (var i = 0; i < this.indent; i++) prefix += "│  ";
+    var marker = this.indent > 0 ? "├─ " : "";
+    this._rawLog("[VKEY] " + prefix + marker + m);
+  },
+  group: function (label) {
+    this.log(label);
+    this.indent++;
+  },
+  groupEnd: function () {
+    if (this.indent > 0) this.indent--;
+    var prefix = "";
+    for (var i = 0; i < this.indent; i++) prefix += "│  ";
+    this._rawLog("[VKEY] " + prefix + "└─ [End]");
+  },
+  error: function (m) {
+    var msg = "[VKEY:err] " + m;
+    console.error("[" + miruV.ts() + "] " + msg);
+    try {
+      var Log = Java.use("android.util.Log");
+      Log.e("Miru", msg);
+    } catch (e) {}
+  },
+  safe: function (label, fn) {
+    try {
+      return fn();
+    } catch (e) {
+      miruV.error(label + ": " + e);
+    }
+  },
+};
+
+function looksLikeVKeyModule(mod) {
+  var name = (mod.name || "").toLowerCase();
+  for (var i = 0; i < CONFIG.vkey.namePatterns.length; i++) {
+    if (name.indexOf(CONFIG.vkey.namePatterns[i]) !== -1) return true;
+  }
+  return false;
+}
+
+function hookVKeyExportsInModule(mod) {
+  miruV.safe("hookVKeyExportsInModule", function () {
+    var exps = mod.enumerateExports();
+    exps.forEach(function (e) {
+      var nm = e.name || "";
+      var lower = nm.toLowerCase();
+      if (
+        nm.indexOf("com_vkey_android") !== -1 ||
+        lower.indexOf("threat") !== -1 ||
+        lower.indexOf("detect") !== -1 ||
+        lower.indexOf("vkey") !== -1
+      ) {
+        miruV.log("hooking " + mod.name + "!" + nm);
+        Interceptor.attach(e.address, {
+          onLeave: function (retval) {
+            try {
+              retval.replace(0);
+            } catch (e2) {}
+          },
+        });
+      }
+    });
+  });
+}
+
+function scanAndHookExistingVKey() {
+  miruV.safe("scanModules", function () {
+    Process.enumerateModules().forEach(function (m) {
+      if (looksLikeVKeyModule(m)) {
+        miruV.log("candidate module " + m.name);
+        hookVKeyExportsInModule(m);
+      }
+    });
+  });
+}
+
+function installDlopenMonitor() {
+  var libart = Process.findModuleByName("libart.so");
+  if (libart) {
+    var symbols = libart.enumerateSymbols();
+    var registerNativesAddr = null;
+    for (var i = 0; i < symbols.length; i++) {
+      var name = symbols[i].name;
+      if (
+        name.indexOf("RegisterNatives") !== -1 &&
+        name.indexOf("JNI") !== -1 &&
+        name.indexOf("CheckJNI") === -1
+      ) {
+        registerNativesAddr = symbols[i].address;
+        miruV.log("[RegisterNatives] Found symbol: " + name);
+        break;
+      }
+    }
+
+    if (registerNativesAddr) {
+      var dummyVKeyCallback = new NativeCallback(
+        function () {
+          console.log("[VKEY] Dummy implementation called! (Safe Log)");
+          return 0;
+        },
+        "void",
+        [],
+      );
+
+      var threadIds = {};
+      Interceptor.attach(registerNativesAddr, {
+        onEnter: function (args) {
+          var tid = Process.getCurrentThreadId();
+          if (threadIds[tid]) return;
+          threadIds[tid] = true;
+          try {
+            var methods = args[2];
+            var count = args[3].toInt32();
+
+            if (methods.isNull() || count <= 0) return;
+
+            for (var i = 0; i < count; i++) {
+              var methodPtr = methods.add(i * Process.pointerSize * 3);
+              var namePtr = Memory.readPointer(methodPtr);
+              if (namePtr.isNull()) continue;
+
+              var name = Memory.readUtf8String(namePtr);
+
+              if (
+                name === "gwbke" ||
+                name === "urkut" ||
+                name === "VerifyNative" ||
+                (name.length === 5 && /^[a-z]+$/.test(name))
+              ) {
+                Memory.writePointer(
+                  methodPtr.add(Process.pointerSize * 2),
+                  dummyVKeyCallback,
+                );
+              }
+            }
+          } catch (e) {
+          } finally {
+            threadIds[tid] = false;
+          }
+        },
+      });
+      miruV.log("[RegisterNatives] Hook installed on libart.so");
+    }
+  }
+
+  function tryHook(name) {
+    var ptr = Module.findExportByName(null, name);
+    if (!ptr) return;
+    Interceptor.attach(ptr, {
+      onEnter: function (args) {
+        this.path = null;
+        try {
+          this.path = Memory.readUtf8String(args[0]);
+        } catch (e) {}
+      },
+      onLeave: function () {
+        if (!this.path) return;
+        var base = null;
+        try {
+          base = this.path.split("/").pop();
+        } catch (e) {}
+        if (!base) return;
+        var lower = base.toLowerCase();
+        for (var i = 0; i < CONFIG.vkey.namePatterns.length; i++) {
+          if (lower.indexOf(CONFIG.vkey.namePatterns[i]) !== -1) {
+            miruV.log(name + " loaded " + this.path);
+            miruV.safe("postLoadVKey", function () {
+              var m = Process.findModuleByName(base);
+              if (m) hookVKeyExportsInModule(m);
+            });
+            break;
+          }
+        }
+      },
+    });
+    miruV.log(name + " monitor installed");
+  }
+}
+
+function installJavaAntiSuicideAndDialogBlock() {
+  Java.perform(function () {
+    try {
+      var System = Java.use("java.lang.System");
+      System.exit.implementation = function (code) {
+        miruV.log("block System.exit(" + code + ")");
+      };
+    } catch (e) {}
+
+    try {
+      var Runtime = Java.use("java.lang.Runtime");
+      Runtime.exit.implementation = function (code) {
+        miruV.log("block Runtime.exit(" + code + ")");
+      };
+      Runtime.halt.implementation = function (code) {
+        miruV.log("block Runtime.halt(" + code + ")");
+      };
+    } catch (e) {}
+
+    try {
+      var P = Java.use("android.os.Process");
+      var kp = P.killProcess;
+      kp.implementation = function (pid) {
+        miruV.log("block Process.killProcess(" + pid + ")");
+      };
+      var ss = P.sendSignal;
+      ss.implementation = function (pid, sig) {
+        miruV.log("block Process.sendSignal(" + pid + "," + sig + ")");
+      };
+    } catch (e) {}
+
+    try {
+        var Activity = Java.use("android.app.Activity");
+        // Safe overload finding
+        var finish = null;
+        try { finish = Activity.finish.overload(); } catch(e){}
+        
+        if (finish) {
+            finish.implementation = function () {
+                var n = this.getClass().getName().toString();
+                if (n.indexOf("VGFullScreenDialogActivity") !== -1 || n.toLowerCase().indexOf("vguard") !== -1) {
+                    finish.call(this);
+                    return;
+                }
+                miruV.log("block Activity.finish " + n);
+            };
+        }
+    } catch (e) {}
+  });
+}
+
+setTimeout(function () {
+  miruV.log("Miru V-Key Bypass Loaded (Auto-Template)");
+  scanAndHookExistingVKey();
+  installDlopenMonitor();
+  installJavaAntiSuicideAndDialogBlock();
+}, 1000);
+`;
+
+        async function createNewFile() {
+            if (!window.ksu || !window.ksu.exec) {
+                addLog('Error: Environment not ready (ksu missing)');
+                return;
+            }
+
+            showInputModal('New File Name', '', 'e.g. script.js', async (name) => {
+                if (!name) return;
+
+                // Simple validation
+                if (name.includes('/') || name.includes('\\') || name.includes('..')) {
+                    alert('Invalid filename');
+                    return;
+                }
+
+                const path = workspaceRoot + '/' + name;
+                addLog('Creating file: ' + name);
+
+                try {
+                    // Check if exists
+                    const check = await ksu.exec(`ls "${path}"`);
+                    if (check.errno === 0) {
+                        alert('File already exists!');
+                        return;
+                    }
+
+                    // Create empty file
+                    const res = await ksu.exec(`touch "${path}"`);
+                    if (res.errno !== 0) {
+                        addLog('Create failed: ' + res.stderr);
+                    } else {
+                        addLog('File created.');
+                        await listWorkspaceFiles();
+                        openFile(path);
+                    }
+                } catch (e) {
+                    addLog('Create exception: ' + e.message);
+                }
+            });
+        }
+
+        async function renameFile(oldName, oldPath) {
+            if (!window.ksu || !window.ksu.exec) {
+                addLog('Error: ksu not ready');
+                return;
+            }
+
+            showInputModal('Rename File', oldName, '', async (newName) => {
+                if (!newName || newName === oldName) return;
+
+                if (newName.includes('/') || newName.includes('\\')) {
+                    alert('Invalid filename');
+                    return;
+                }
+
+                // Determine parent dir
+                const parentDir = oldPath.substring(0, oldPath.lastIndexOf('/'));
+                const newPath = parentDir + '/' + newName;
+
+                addLog(`Renaming ${oldName} -> ${newName}...`);
+
+                try {
+                    const res = await ksu.exec(`mv "${oldPath}" "${newPath}"`);
+                    if (res.errno !== 0) {
+                        addLog('Rename failed: ' + res.stderr);
+                    } else {
+                        addLog('Renamed successfully.');
+
+                        // If open, update reference
+                        if (window.currentFilePath === oldPath) {
+                            window.currentFilePath = newPath;
+                            const tab = document.getElementById('active-file-tab');
+                            if (tab) {
+                                tab.textContent = newName;
+                                if (tab.parentElement) tab.parentElement.title = newPath;
+                            }
+                        }
+
+                        listWorkspaceFiles();
+                    }
+                } catch (e) {
+                    addLog('Rename exception: ' + e.message);
+                }
+            });
+        }
+
+        async function deleteFile(name, fullPath) {
+            if (!window.ksu || !window.ksu.exec) return;
+
+            const path = fullPath || (workspaceRoot + '/' + name);
+
+            showConfirmModal(
+                'Delete File',
+                `Are you sure you want to delete "${name}" ? This cannot be undone.`,
+                async () => {
+                    addLog('Deleting ' + name + '...');
+
+                    try {
+                        const res = await ksu.exec(`rm "${path}"`);
+                        if (res.errno !== 0) {
+                            addLog('Delete failed: ' + res.stderr);
+                        } else {
+                            addLog('File deleted.');
+
+                            // Close if currently open
+                            if (window.currentFilePath === path) {
+                                closeFile();
+                            }
+
+                            listWorkspaceFiles();
+                        }
+                    } catch (e) {
+                        addLog('Delete exception: ' + e.message);
+                    }
+                },
+                true // Danger
+            );
+        }
+
+
+        async function updateMiruConfig(pkg, scriptPath) {
+            if (!window.ksu || !window.ksu.exec) return;
+            const configDir = '/data/local/tmp/miru/config';
+            const configFile = configDir + '/enabled_targets';
+
+            try {
+                // Robust Init: Ensure /data/local/tmp/miru is a directory
+                // Fixes "Not a directory" error if it was created as a file
+                await ksu.exec(`if [ -f "/data/local/tmp/miru" ]; then rm -f "/data/local/tmp/miru"; fi`);
+                await ksu.exec(`mkdir -p "${configDir}"`);
+
+                // Overwrite config for single-target focus
+                // Format: pkg|path
+                const content = `${pkg}|${scriptPath}`;
+                const res = await ksu.exec(`echo "${content}" > "${configFile}"`);
+                if (res.errno !== 0) throw new Error(res.stderr);
+            } catch (e) {
+                throw e;
+            }
+        }
+
+        let logPollInterval = null;
+        let logOffset = 0;
+        // Dynamic Log File based on Package
+        function getConsoleLogPath() {
+            const pkg = (window.selectedTarget && window.selectedTarget.pkg) ? window.selectedTarget.pkg : 'system';
+            return `/data/local/tmp/miru/console-${pkg}.log`;
+        }
+
+        function togglePiP() {
+            const consolePanel = document.getElementById('console-panel');
+            const resizer = document.getElementById('resizer-h');
+
+            if (consolePanel.classList.contains('pip-mode')) {
+                consolePanel.classList.remove('pip-mode');
+                Object.assign(consolePanel.style, {
+                    position: '', width: '', height: '200px', bottom: '', right: '', zIndex: '', boxShadow: '', borderLeft: ''
+                });
+                if (resizer) resizer.style.display = 'block';
+            } else {
+                consolePanel.classList.add('pip-mode');
+                Object.assign(consolePanel.style, {
+                    position: 'fixed', bottom: '20px', right: '20px', width: '400px', height: '300px',
+                    zIndex: '1000', boxShadow: '-5px -5px 20px rgba(0,0,0,0.5)', borderLeft: '1px solid var(--glass-border)'
+                });
+                if (resizer) resizer.style.display = 'none';
+            }
+            if (window.editor) window.editor.layout();
+        }
+
+        let isPolling = false;
+        let currentLogPath = '';
+
+        async function pollConsoleLog() {
+            if (!window.ksu || !window.ksu.exec || isPolling) return;
+            isPolling = true;
+            try {
+                const logPath = getConsoleLogPath();
+
+                // Detect path change (App Switch)
+                if (logPath !== currentLogPath) {
+                    currentLogPath = logPath;
+                    logOffset = 0; // Reset offset for new file
+                    // Clear UI for new app
+                    const scr = document.getElementById('console-output-script');
+                    if (scr) scr.innerHTML = '<div class="console-line" style="color:#666">// Switched to ' + logPath.split('-').pop().replace('.log', '') + '</div>';
+                }
+
+                const res = await ksu.exec(`cat "${logPath}"`);
+                if (res.errno === 0 && res.stdout) {
+                    const content = res.stdout;
+                    if (content.length < logOffset) logOffset = 0; // File reset
+
+                    if (content.length > logOffset) {
+                        const newContent = content.substring(logOffset);
+                        addLog(newContent, 'script');
+                        switchConsole('script');
+                        logOffset = content.length;
+                    }
+                }
+            } catch (e) {
+                // Ignore errors during poll to avoid log spam
+            } finally {
+                isPolling = false;
+            }
+        }
+
+        function startLogPolling() {
+            if (logPollInterval) clearInterval(logPollInterval);
+            logOffset = 0;
+            // Use setInterval but with guard flag, or switch to recursive setTimeout
+            // Using guard flag is simpler with existing structure
+            logPollInterval = setInterval(pollConsoleLog, 1000);
+        }
+
+        async function runScript() {
+            // 1. Open Console if closed
+            const consolePanel = document.getElementById('console-panel');
+            const resizer = document.getElementById('resizer-h');
+
+            // Auto-switch to script tab for run logs
+            switchConsole('script');
+
+            if (window.innerWidth <= 600) {
+                // Mobile
+                if (!consolePanel.classList.contains('open')) {
+                    consolePanel.classList.add('open');
+                }
+            } else {
+                // Desktop
+                if (consolePanel.style.display === 'none') {
+                    consolePanel.style.display = 'flex';
+                    if (resizer) resizer.style.display = 'block';
+                    if (window.editor) window.editor.layout();
+                }
+            }
+
+            // Visual Feedback for Run Button
+            const runBtn = document.querySelector('button[onclick="runScript()"]');
+            const originalBg = runBtn ? runBtn.style.background : '';
+            if (runBtn) runBtn.style.background = '#f1c40f'; // Loading Yellow
+
+            // 2. Execution Logic
+            if (!window.currentFilePath) {
+                addLog('Error: No file currently open to run.', 'script');
+                if (runBtn) runBtn.style.background = '#e74c3c'; // Error Red
+                return;
+            }
+
+            await saveCurrentFile(); // Auto-save before run
+
+            addLog('--- Running ' + window.currentFilePath.split('/').pop() + ' ---', 'script');
+
+            // Check if it's a JS file or Shell script
+            const ext = window.currentFilePath.split('.').pop().toLowerCase();
+            let cmd = '';
+
+            if (ext === 'js') {
+                // Detect Package Name from Path (Robust Mode)
+                let pkg = null;
+
+                // 1. Try to deduce from path FIRST (Context follows Content)
+                const parts = window.currentFilePath.split('/');
+                for (let i = parts.length - 2; i >= 0; i--) {
+                    const part = parts[i];
+                    // Heuristic: Contains dot, not a script extension, not 'scripts' folder
+                    if (part.includes('.') && !part.endsWith('.js') && !part.endsWith('.sh') && part !== 'scripts') {
+                        pkg = part;
+                        addLog(`⚠️ Auto-detected package from path: ${pkg}`, 'script');
+                        break;
+                    }
+                }
+
+                // 2. Fallback to explicit selection
+                if (!pkg && window.selectedTarget && window.selectedTarget.pkg) {
+                    pkg = window.selectedTarget.pkg;
+                    addLog(`Using selected target: ${pkg}`, 'script');
+                }
+
+                if (pkg && pkg.includes('.')) {
+                    addLog(`🎯 Target: ${pkg} `, 'script');
+
+                    // Update Config
+                    try {
+                        // addLog('Updating Miru config...', 'script');
+                        await updateMiruConfig(pkg, window.currentFilePath);
+                        // addLog('Config updated.', 'script');
+                    } catch (e) {
+                        addLog('Config update warning: ' + e.message, 'script');
+                    }
+
+                    addLog('🔄 Preparing Zygisk injection...', 'script');
+
+                    // Force stop
+                    await ksu.exec(`am force - stop ${pkg} `);
+
+                    // Start App
+                    cmd = `monkey - p ${pkg} -c android.intent.category.LAUNCHER 1`;
+                } else {
+                    // Fallback
+                    addLog('Could not detect target package. Please select a target from the sidebar.', 'script');
+                    if (runBtn) runBtn.style.background = '#e74c3c';
+                    return;
+                }
+
+                // --- DEPLOYMENT LOGIC (Fix for "It won't run!") ---
+                if (pkg && pkg.includes('.')) {
+                    // addLog(`Target Package: ${ pkg } `, 'script'); // Already logged above
+
+                    // 1. Deploy Script to Miru/Zygisk Path
+                    try {
+                        const fileName = window.currentFilePath.split('/').pop();
+                        const destPath = `/data/local/tmp/scripts/${pkg}/${fileName}`;
+                        addLog(`📝 Activating [${fileName}] -> ${destPath}`, 'script');
+
+                        // Ensure directory exists
+                        await ksu.exec(`mkdir -p "/data/local/tmp/scripts/${pkg}"`);
+
+                        // Copy content from Editor (safer than cat A > A, and includes unsaved changes)
+                        const content = window.editor.getValue();
+                        const b64 = btoa(unescape(encodeURIComponent(content)));
+
+                        // Write to destination
+                        const deployCmd = `echo "${b64}" | base64 -d > "${destPath}" && chmod 644 "${destPath}"`;
+                        await ksu.exec(deployCmd);
+
+                        // Update Config with SPECIFIC file path
+                        try {
+                            await updateMiruConfig(pkg, destPath);
+                        } catch (e) {
+                            addLog('Config update warning: ' + e.message, 'script');
+                        }
+
+                        // addLog('Script deployed successfully.', 'script');
+
+                        // 3. Restart App & Inject
+                        addLog('Restarting app & Injecting (Manual/Zygisk)...', 'script');
+
+                        // Clear Console UI
+                        clearConsole();
+
+                        // Force stop
+                        await ksu.exec(`am force-stop ${pkg}`);
+
+                        // Start App + Manual Injection Chain
+                        // Ensure we truncate the log file properly using 'echo > file'
+                        // We also need to make sure the directory exists and has permissions
+                        const logFile = `/data/local/tmp/miru/console-${pkg}.log`;
+                        // Also persist logs to package workspace
+                        const pkgLogFile = `${workspaceRoot}/pkg/${pkg}/console.log`;
+
+                        await ksu.exec(`mkdir -p "$(dirname "${logFile}")"`);
+                        await ksu.exec(`mkdir -p "$(dirname "${pkgLogFile}")"`);
+
+                        const initMsg = "--- Starting Log Stream [$(date)] ---";
+                        await ksu.exec(`echo "${initMsg}" > "${logFile}"`);
+                        await ksu.exec(`echo "${initMsg}" >> "${pkgLogFile}"`); // Append to persistent log
+
+                        startLogPolling();
+
+                        // Use /data/local/tmp for reliability (avoids module permission issues)
+                        const runScriptPath = '/data/local/tmp/run_miru.sh';
+
+                        // Ensure script is executable
+                        await ksu.exec(`chmod +x "${runScriptPath}"`);
+
+                        // Run with sh explicitly to avoid shebang issues
+                        // Pipe output to both live log (tmp) and persistent log (pkg)
+                        // Note: tee might buffer, but usually fine for line-based logs
+                        cmd = `nohup sh -c 'sh "${runScriptPath}" "${pkg}" "${destPath}" 2>&1 | tee -a "${logFile}" "${pkgLogFile}"' >/dev/null &`;
+
+                    } catch (e) {
+                        addLog('Activation failed: ' + e.message, 'script');
+                        if (runBtn) runBtn.style.background = '#e74c3c';
+                        return;
+                    }
+                }
+            } else if (ext === 'sh') {
+                cmd = `sh "${window.currentFilePath}"`;
+            } else {
+                addLog('Unknown file type. Trying to execute...', 'script');
+                cmd = `"${window.currentFilePath}"`;
+            }
+
+            if (cmd) {
+                try {
+                    // Use ksu.exec
+                    const res = await ksu.exec(cmd);
+                    if (res.stdout) addLog(res.stdout, 'script');
+
+                    let hasError = false;
+                    if (res.stderr) {
+                        // Filter known non-error output from monkey/am
+                        const isInfo = /Events injected: \d+/.test(res.stderr) ||
+                            res.stderr.includes('args: [') ||
+                            res.stderr.includes('using the system-wide default');
+
+                        if (isInfo) {
+                            addLog(res.stderr, 'script');
+                        } else {
+                            addLog('Error: ' + res.stderr, 'script');
+                            hasError = true;
+                        }
+                    }
+
+                    if (hasError) {
+                        if (runBtn) runBtn.style.background = '#e74c3c'; // Red
+                    } else {
+                        if (runBtn) {
+                            runBtn.style.background = '#2ecc71'; // Green
+                            setTimeout(() => {
+                                if (runBtn) runBtn.style.background = originalBg;
+                            }, 1000);
+                        }
+                    }
+
+                    // Post-run for JS/App Restart
+                    if (ext === 'js' && cmd.includes('am force-stop')) {
+                        addLog('App restarted. Streaming logs from console...', 'script');
+                    } else if (!res.stdout && !res.stderr) {
+                        addLog('Done (No Output)', 'script');
+                    }
+                } catch (e) {
+                    addLog('Execution Exception: ' + e.message, 'script');
+                    if (runBtn) runBtn.style.background = '#e74c3c';
+                }
+            } else {
+                if (runBtn) runBtn.style.background = originalBg;
+            }
+        }
+
+        async function restartTargetApp() {
+            if (!window.ksu || !window.ksu.exec) return;
+
+            let pkg = null;
+            if (window.selectedTarget && window.selectedTarget.pkg) {
+                pkg = window.selectedTarget.pkg;
+            } else {
+                // Try to guess from path
+                if (window.currentFilePath && window.currentFilePath.includes('/scripts/')) {
+                    const parts = window.currentFilePath.split('/');
+                    const idx = parts.indexOf('scripts');
+                    if (idx !== -1 && idx + 2 < parts.length) {
+                        pkg = parts[idx + 1];
+                    }
+                }
+            }
+
+            if (!pkg || !pkg.includes('.')) {
+                addLog('Error: No target package identified.');
+                return;
+            }
+
+            showConfirmModal(
+                'Restart App',
+                `Restart ${pkg} to apply changes?`,
+                async () => {
+                    addLog(`Restarting ${pkg}...`);
+                    try {
+                        await ksu.exec(`am force-stop ${pkg}`);
+
+                        // Wait briefly
+                        setTimeout(async () => {
+                            const res = await ksu.exec(`monkey -p ${pkg} -c android.intent.category.LAUNCHER 1`);
+                            if (res.errno !== 0 && res.stderr) {
+                                addLog('Launch warning: ' + res.stderr);
+                            } else {
+                                addLog('App launched.');
+                            }
+                        }, 500);
+
+                    } catch (e) {
+                        addLog('Restart exception: ' + e.message);
+                    }
+                }
+            );
+        }
+
+        async function clearAppData() {
+            if (!window.ksu || !window.ksu.exec) return;
+
+            let pkg = null;
+            if (window.selectedTarget && window.selectedTarget.pkg) {
+                pkg = window.selectedTarget.pkg;
+            } else {
+                // Try to guess from path
+                if (window.currentFilePath && window.currentFilePath.includes('/scripts/')) {
+                    const parts = window.currentFilePath.split('/');
+                    const idx = parts.indexOf('scripts');
+                    if (idx !== -1 && idx + 2 < parts.length) {
+                        pkg = parts[idx + 1];
+                    }
+                }
+            }
+
+            if (!pkg || !pkg.includes('.')) {
+                addLog('Error: No target package identified. Select a file or target first.');
+                return;
+            }
+
+            showConfirmModal(
+                'Clear App Data',
+                `Are you sure you want to CLEAR DATA for ${pkg}? This cannot be undone.`,
+                async () => {
+                    addLog(`Clearing data for ${pkg}...`);
+                    try {
+                        const res = await ksu.exec(`pm clear ${pkg}`);
+                        if (res.errno === 0) {
+                            addLog('Data cleared successfully.');
+                        } else {
+                            addLog('Error clearing data: ' + res.stderr);
+                        }
+                    } catch (e) {
+                        addLog('Clear data exception: ' + e.message);
+                    }
+                }
+            );
+        }
+
+        async function closeFile(e) {
+            if (e) e.stopPropagation(); // Prevent triggering tab click if we add one later
+
+            if (!window.editor) return;
+
+            // Clear Editor
+            window.editor.setValue('// Select a file to start editing...');
+            window.currentFilePath = null;
+
+            // Reset Tab Name
+            const tab = document.getElementById('active-file-tab');
+            if (tab) {
+                tab.textContent = 'No File';
+                if (tab.parentElement) tab.parentElement.removeAttribute('title');
+            }
+
+            // Clear Selection in Sidebar
+            const items = document.querySelectorAll('.file-item');
+            items.forEach(el => {
+                el.classList.remove('active');
+                el.style.background = 'transparent';
+            });
+
+            addLog('File closed.');
+        }
+
+        // Layout Logic
+        // --- Nav Dropdown Logic ---
+        function toggleNavDropdown() {
+            document.getElementById("nav-dropdown").classList.toggle("show");
+        }
+
+        // Close dropdown when clicking outside
+        window.onclick = function (event) {
+            if (!event.target.closest('.dropdown')) {
+                var dropdowns = document.getElementsByClassName("dropdown-content");
+                for (var i = 0; i < dropdowns.length; i++) {
+                    var openDropdown = dropdowns[i];
+                    if (openDropdown.classList.contains('show')) {
+                        openDropdown.classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('resize', checkBrandOverflow);
+
+        function toggleExplorer() {
+            const el = document.getElementById('explorer-panel');
+            const backdrop = document.getElementById('explorer-backdrop');
+
+            if (window.innerWidth <= 600) {
+                el.classList.toggle('open');
+                if (backdrop) backdrop.classList.toggle('open');
+            } else {
+                el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+                // Hide resizer if explorer is hidden
+                const resizer = document.getElementById('resizer-v');
+                if (resizer) resizer.style.display = el.style.display === 'none' ? 'none' : 'block';
+            }
+
+            // Re-layout editor after transition
+            setTimeout(() => {
+                if (window.editor) window.editor.layout();
+            }, 300);
+        }
+
+        function toggleConsole() {
+            const el = document.getElementById('console-panel');
+            const resizer = document.getElementById('resizer-h');
+
+            if (window.innerWidth <= 600) {
+                el.classList.toggle('open');
+            } else {
+                // Desktop
+                const isHidden = el.style.display === 'none';
+                el.style.display = isHidden ? 'flex' : 'none';
+                if (resizer) resizer.style.display = isHidden ? 'block' : 'none';
+                if (window.editor) window.editor.layout();
+            }
+        }
+
+        // --- Resizing Logic ---
+        (function initResizers() {
+            const editorContainer = document.getElementById('playground-code');
+
+            // Vertical Resizer (Explorer width)
+            const resizerV = document.getElementById('resizer-v');
+            const explorer = document.getElementById('explorer-panel');
+
+            if (resizerV && explorer) {
+                resizerV.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    resizerV.classList.add('resizing');
+                    document.body.style.cursor = 'col-resize';
+                    if (editorContainer) editorContainer.style.pointerEvents = 'none'; // Fix: Prevent iframe swallowing
+
+                    function onMouseMove(e) {
+                        let newWidth = e.clientX;
+                        if (newWidth < 150) newWidth = 150; // min width
+                        if (newWidth > 600) newWidth = 600; // max width
+                        explorer.style.width = newWidth + 'px';
+                        if (window.editor) window.editor.layout();
+                    }
+
+                    function onMouseUp() {
+                        resizerV.classList.remove('resizing');
+                        document.body.style.cursor = 'default';
+                        if (editorContainer) editorContainer.style.pointerEvents = 'auto'; // Fix: Restore events
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            }
+
+            // Horizontal Resizer (Console height)
+            const resizerH = document.getElementById('resizer-h');
+            const consolePanel = document.getElementById('console-panel');
+
+            if (resizerH && consolePanel) {
+                resizerH.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    resizerH.classList.add('resizing');
+                    document.body.style.cursor = 'row-resize';
+                    if (editorContainer) editorContainer.style.pointerEvents = 'none'; // Fix: Prevent iframe swallowing
+
+                    function onMouseMove(e) {
+                        // Calculate height from bottom
+                        const totalHeight = window.innerHeight;
+                        let newHeight = totalHeight - e.clientY;
+
+                        if (newHeight < 30) newHeight = 30; // min height (header only)
+                        if (newHeight > totalHeight - 100) newHeight = totalHeight - 100;
+
+                        consolePanel.style.height = newHeight + 'px';
+                        if (window.editor) window.editor.layout();
+                    }
+
+                    function onMouseUp() {
+                        resizerH.classList.remove('resizing');
+                        document.body.style.cursor = 'default';
+                        if (editorContainer) editorContainer.style.pointerEvents = 'auto'; // Fix: Restore events
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            }
+
+            // Stream Resizer (Mini Stream height)
+            const resizerStream = document.getElementById('resizer-stream');
+            const miniStreamPanel = document.getElementById('mini-stream-panel');
+
+            if (resizerStream && miniStreamPanel) {
+                // Ensure resizer is visible if panel is (or just always visible for now if panel is there)
+                // Actually, let's control visibility in toggleMiniStream, but here we set up events.
+
+                resizerStream.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    document.body.style.cursor = 'row-resize';
+                    if (editorContainer) editorContainer.style.pointerEvents = 'none';
+
+                    function onMouseMove(e) {
+                        const explorerRect = document.getElementById('explorer-panel').getBoundingClientRect();
+                        const bottomY = explorerRect.bottom;
+
+                        // Height = Bottom - MouseY
+                        let newHeight = bottomY - e.clientY;
+
+                        if (newHeight < 30) newHeight = 30; // Min height (header)
+                        if (newHeight > explorerRect.height - 100) newHeight = explorerRect.height - 100; // Max
+
+                        miniStreamPanel.style.height = newHeight + 'px';
+                    }
+
+                    function onMouseUp() {
+                        document.body.style.cursor = 'default';
+                        if (editorContainer) editorContainer.style.pointerEvents = 'auto';
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            }
+        })();
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            window.editor = monaco.editor.create(document.getElementById('playground-code'), {
+                value: '// Welcome to Miru IDE\n// Select a file to start editing...',
+                language: 'javascript',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: true },
+                fontSize: 13,
+                fontFamily: "'JetBrains Mono', monospace",
+                scrollBeyondLastLine: false
+            });
+
+            // --- Prettier Formatting Support ---
+            const registerFormatter = (lang) => {
+                monaco.languages.registerDocumentFormattingEditProvider(lang, {
+                    provideDocumentFormattingEdits: function (model, options, token) {
+                        if (typeof prettier !== 'undefined' && prettier.format) {
+                            try {
+                                const text = model.getValue();
+                                let parser = 'babel'; // default for js/jsx/ts
+                                if (lang === 'json') parser = 'json';
+                                if (lang === 'html') parser = 'html';
+
+                                const formatted = prettier.format(text, {
+                                    parser: parser,
+                                    plugins: prettierPlugins,
+                                    singleQuote: true,
+                                    trailingComma: 'none',
+                                    tabWidth: 4,
+                                    printWidth: 100
+                                });
+                                return [{
+                                    range: model.getFullModelRange(),
+                                    text: formatted
+                                }];
+                            } catch (e) {
+                                console.error('Prettier Format Error:', e);
+                                addLog(`Format Error: ${e.message}`);
+                                return [];
+                            }
+                        }
+                        return [];
+                    }
+                });
+            };
+
+            registerFormatter('javascript');
+            registerFormatter('typescript');
+            registerFormatter('json');
+
+            window.formatCode = function () {
+                if (window.editor) {
+                    addLog('Formatting code...');
+                    if (typeof prettier === 'undefined') {
+                        addLog('Error: Prettier library not loaded. Check internet connection.');
+                        return;
+                    }
+                    if (typeof prettierPlugins === 'undefined') {
+                        addLog('Error: Prettier Plugins (Babel) not loaded.');
+                        return;
+                    }
+
+                    window.editor.getAction('editor.action.formatDocument').run()
+                        .then(() => {
+                            // Success callback (doesn't always trigger if no changes)
+                            // addLog('Format command executed.'); 
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            addLog(`Format Failed: ${err}`);
+                        });
+                } else {
+                    addLog('Editor not initialized.');
+                }
+            };
+
+            // Add Save Command (Monaco)
+            window.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
+                saveCurrentFile();
+            });
+
+            // Wait for KSU and load files
+            const waitForKsu = async () => {
+                let attempts = 0;
+                const maxAttempts = 20;
+
+                const check = async () => {
+                    if (window.ksu && window.ksu.exec) {
+                        addLog('Connected to KernelSU/Root bridge.');
+                        if (workspaceRoot) listWorkspaceFiles(true);
+                        startLogPolling();
+                        return;
+                    }
+
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        setTimeout(check, 500);
+                    } else {
+                        addLog('Warning: KernelSU bridge not detected. Some features may be disabled.');
+                        // Try to list anyway if polyfill exists, or show retry button in file list
+                        const container = document.getElementById('file-list');
+                        if (container) {
+                            container.innerHTML = `
+                                <div style="padding: 1rem; text-align: center; color: #e74c3c;">
+                                    Root Bridge Not Found<br>
+                                    <button onclick="location.reload()" style="margin-top:10px;padding:5px 10px;background:#333;border:1px solid #555;color:#fff;border-radius:4px;">Retry</button>
+                                </div>
+                             `;
+                        }
+                    }
+                };
+                check();
+            };
+
+            waitForKsu();
+        });
+
+        // Global Save Shortcut
+        window.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveCurrentFile();
+            }
+        });
+
+    </script>
+</body>
+
+</html>
