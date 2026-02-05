@@ -4,7 +4,7 @@
 # 1. Config
 # URL of the repository ZIP file (Master/Main branch)
 # Replace this with your actual repository URL
-REPO_URL="https://github.com/YOUR_GITHUB_USERNAME/miru_ui_module/archive/refs/heads/main.zip"
+REPO_URL="https://github.com/DevTeam-sc/Miru_ui_module/archive/refs/heads/main.zip"
 UPDATE_DIR="/data/local/tmp/miru_update"
 MOD_DIR="/data/adb/modules/miru_ui_module"
 
