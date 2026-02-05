@@ -37,7 +37,7 @@ ide_check_local.html
 scripts/pack_module.py
 scripts/deploy.py
 scripts/test_scrcpy.py
-scripts/web_stream.py
+# scripts/web_stream.py
 
 # Local Configs (Keep host.json in repo as template, but ignore local changes if needed)
 # webroot/config/host.json

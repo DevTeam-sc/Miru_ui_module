@@ -1,7 +1,0 @@
-id=miru_ui_module
-name=Miru UI Module (KSU WebUI)
-version=v5.1
-versionCode=510
-author=DevSKY
-description=KernelSU module with WebUI (HTML/JS) + shell backend
-updateJson=
