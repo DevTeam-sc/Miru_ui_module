@@ -25,8 +25,19 @@ build/
 *.jks
 secret.json
 
+# Development & Documentation (Not for Module)
+AGENTS.md
+BUILD.md
+Project_Documentation.md
+ide_check_local.html
+*.bat
+
+# Windows/Dev Tools (Not for Module)
+tools/
+scripts/pack_module.py
+scripts/deploy.py
+scripts/test_scrcpy.py
+scripts/web_stream.py
+
 # Local Configs (Keep host.json in repo as template, but ignore local changes if needed)
 # webroot/config/host.json
-
-# Tools (Optional: Uncomment if you don't want to push binaries)
-# tools/
