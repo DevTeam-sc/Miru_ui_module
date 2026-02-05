@@ -47,35 +47,43 @@ if [ -f "$MOD_PATH/miru.bat" ]; then
 fi
 
 
-# 3. Copy ADB Binaries (If we shipped them)
-# We need to ensure these are in the module first!
-ADB_SRC="$MOD_PATH/tools/adb"
+# 3. Copy Tools (ADB, Python, Scrcpy) - Full Structure
+TOOLS_SRC="$MOD_PATH/tools"
 
-if [ -d "$ADB_SRC" ]; then
-    # Copy essential ADB files only
-    cp "$ADB_SRC/adb.exe" "$TARGET_DIR/" 2>/dev/null
-    cp "$ADB_SRC/AdbWinApi.dll" "$TARGET_DIR/" 2>/dev/null
-    cp "$ADB_SRC/AdbWinUsbApi.dll" "$TARGET_DIR/" 2>/dev/null
-    echo "[Miru] ADB binaries copied."
+echo "[Miru] Syncing Module to SD Card (All-in-One)..."
+
+# 3.1 Copy Tools
+if [ -d "$TOOLS_SRC" ]; then
+    mkdir -p "$TARGET_DIR/tools"
+    cp -rf "$TOOLS_SRC/"* "$TARGET_DIR/tools/"
 else
-    # Fallback to legacy path if present
-    LEGACY_ADB="$MOD_PATH/tools/scrcpy/scrcpy-win64-v2.4"
-    if [ -d "$LEGACY_ADB" ]; then
-        cp "$LEGACY_ADB/adb.exe" "$TARGET_DIR/" 2>/dev/null
-        cp "$LEGACY_ADB/AdbWinApi.dll" "$TARGET_DIR/" 2>/dev/null
-        cp "$LEGACY_ADB/AdbWinUsbApi.dll" "$TARGET_DIR/" 2>/dev/null
-        echo "[Miru] ADB binaries copied (Legacy)."
-    else
-        echo "[Miru] Warning: ADB tools not found at $ADB_SRC"
-    fi
+    echo "[Miru] Warning: 'tools/' not found."
 fi
 
-# 4. Copy Bundled Python (If we shipped it)
-PY_SRC="$MOD_PATH/tools/python"
-if [ -f "$PY_SRC/python.exe" ]; then
-    echo "[Miru] Copying bundled Python..."
-    mkdir -p "$TARGET_DIR/tools/python"
-    cp -r "$PY_SRC/"* "$TARGET_DIR/tools/python/"
+# 3.2 Copy Scripts & Webroot (For offline PC setup)
+if [ -d "$MOD_PATH/scripts" ]; then
+    mkdir -p "$TARGET_DIR/scripts"
+    cp -rf "$MOD_PATH/scripts/"* "$TARGET_DIR/scripts/"
+fi
+
+if [ -d "$MOD_PATH/webroot" ]; then
+    mkdir -p "$TARGET_DIR/webroot"
+    cp -rf "$MOD_PATH/webroot/"* "$TARGET_DIR/webroot/"
+fi
+
+# 3.3 Copy System Binaries (Optional, for reference)
+if [ -d "$MOD_PATH/system/bin" ]; then
+    mkdir -p "$TARGET_DIR/system/bin"
+    cp -rf "$MOD_PATH/system/bin/"* "$TARGET_DIR/system/bin/"
+fi
+
+# 4. Copy ADB to root for convenience (Optional)
+if [ -f "$TARGET_DIR/tools/scrcpy/scrcpy-win64-v2.4/adb.exe" ]; then
+    cp "$TARGET_DIR/tools/scrcpy/scrcpy-win64-v2.4/adb.exe" "$TARGET_DIR/" 2>/dev/null
+    cp "$TARGET_DIR/tools/scrcpy/scrcpy-win64-v2.4/AdbWinApi.dll" "$TARGET_DIR/" 2>/dev/null
+    cp "$TARGET_DIR/tools/scrcpy/scrcpy-win64-v2.4/AdbWinUsbApi.dll" "$TARGET_DIR/" 2>/dev/null
+elif [ -f "$TARGET_DIR/tools/adb/adb.exe" ]; then
+    cp "$TARGET_DIR/tools/adb/adb.exe" "$TARGET_DIR/" 2>/dev/null
 fi
 
 echo "[Miru] Portable Launcher Ready!"
