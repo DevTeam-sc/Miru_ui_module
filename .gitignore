@@ -33,7 +33,7 @@ ide_check_local.html
 *.bat
 
 # Windows/Dev Tools (Not for Module)
-tools/
+# tools/ (Commented out: Tools are REQUIRED for All-in-One deployment)
 scripts/pack_module.py
 scripts/deploy.py
 scripts/test_scrcpy.py
